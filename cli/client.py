@@ -13,10 +13,12 @@ import socketio
 sio = socketio.Client()
 sio.connect('http://127.0.0.1:6221')
 
+username = ""
+
 
 @sio.on('response')
 def response(data):
-    print(data)
+    click.echo(f"{data['from']} says: \n {data['message']}")
 
 @click.group(invoke_without_command=True)
 @click.option("--command", prompt=">")
@@ -25,23 +27,28 @@ def cli(ctx, command):
     cmd = cli.get_command(ctx, command)
     ctx.invoke(cmd)
 
-@cli.command(name='connect')
-def connect():
+@cli.command(name='username')
+def username():
+    global username
     username = click.prompt('Username', type=click.STRING)
-    sio.emit('message', {'from': username})
+
+@cli.command(name='message')
+def message():
+    global username
+    message = click.prompt('Message', type=click.STRING)
+    sio.emit('message', {'from': username,
+                         "message":message})
 
 @cli.command(name='q')
 def quitapp():
     raise click.exceptions.Abort()
     
 
-def main():    
+def client():    
     while True:
         try:
            cli.main(standalone_mode=False)
         except click.exceptions.Abort:
            break 
 
-
-if __name__ == '__main__':
-    main()
+client()

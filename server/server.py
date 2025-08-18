@@ -25,7 +25,8 @@ def join(room):
 @socketio.on('message')
 def message(data):
     print(data)  # {'from': 'client'}
-    emit('response', {'from': 'server'})
+    socketio.emit('response', {'from': data["from"],
+                      "message":data["message"]})
 
 
 def run():
