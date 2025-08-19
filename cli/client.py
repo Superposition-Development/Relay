@@ -9,6 +9,7 @@
 
 import click
 import socketio
+import os
 
 sio = socketio.Client()
 sio.connect('http://127.0.0.1:6221')
@@ -39,12 +40,38 @@ def message():
     sio.emit('message', {'from': username,
                          "message":message})
 
+@cli.command(name='clear')
+def clear():
+   draw()
+
+def draw():
+    click.clear()
+    cols = os.get_terminal_size().columns
+    rows = os.get_terminal_size().lines
+    mainWindowWidth = int(cols * 0.9)
+    # line = "-" * cols
+    # line = click.style("-" * cols,fg=(206, 176, 126))
+    line = click.style("-" * cols,fg="yellow")
+    click.echo(line)
+    click.echo(click.style("Relay CLI Edition",fg="bright_yellow"))
+    click.echo(line)
+
+    # Header at the right edge
+    print(f"\033[{mainWindowWidth}G| Online Users")
+    print(f"\033[{mainWindowWidth}G|" + "-" * (cols-mainWindowWidth))
+
+    # Draw vertical bar
+    for _ in range(rows - 6):
+        print(f"\033[{mainWindowWidth}G|")
+        
+
 @cli.command(name='q')
 def quitapp():
     raise click.exceptions.Abort()
     
 
-def client():    
+def client():
+    draw()    
     while True:
         try:
            cli.main(standalone_mode=False)
