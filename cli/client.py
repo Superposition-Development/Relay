@@ -10,9 +10,13 @@
 import click
 import socketio
 import os
+import requests
 from enum import Enum
 
 localCache = []
+localSession = {
+    "jwt":None,
+}
 
 class FSM(Enum):
     BOOT=0
@@ -60,7 +64,6 @@ def clear():
 
 def draw():
     global fsmState
-    global username
     click.clear()
     cols = os.get_terminal_size().columns
     rows = os.get_terminal_size().lines
@@ -85,12 +88,23 @@ def draw():
             fsmState = FSM.LOGIN
         if(prompt == "3"):
             fsmState = FSM.CHANNEL
+            draw()
         return
     if(fsmState == FSM.SIGNUP):
         username = click.prompt("Enter a username")
-        fsmState = FSM.CHANNEL
+        userID = click.prompt("Enter an userID")
+        password = click.prompt("Enter a password")
+        payload = {"userID":userID,"username":username,"password":password}
+        localSession["jwt"] = requests.post("http://127.0.0.1:6221/signup/",json=payload).json()
+        fsmState = FSM.BOOT
         draw()
         return
+    if(fsmState == FSM.CHANNEL and localSession.get("jwt") == None):
+        click.prompt(click.style("Your session is invalid, type exit to continue and login", fg="red"))
+        fsmState = FSM.BOOT
+        draw()
+        return
+        
     
 
 
