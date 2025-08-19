@@ -10,16 +10,19 @@
 import click
 import socketio
 import os
+import signal
+
+localCache = []
 
 sio = socketio.Client()
 sio.connect('http://127.0.0.1:6221')
 
 username = ""
-
+isChatActive = False
 
 @sio.on('response')
 def response(data):
-    click.echo(f"{data['from']} says: \n {data['message']}")
+  localCache.append(data)
 
 @click.group(invoke_without_command=True)
 @click.option("--command", prompt=">")
@@ -51,13 +54,21 @@ def draw():
     mainWindowWidth = int(cols * 0.9)
     # line = "-" * cols
     # line = click.style("-" * cols,fg=(206, 176, 126))
-    line = click.style("-" * cols,fg="yellow")
+    line = click.style("=" * cols,fg="yellow")
     click.echo(line)
-    click.echo(click.style("Relay CLI Edition",fg="bright_yellow"))
+    chatstatus = click.style(f"\033[{mainWindowWidth}G Chat Active",fg="green")
+    if(not isChatActive):
+        chatstatus = click.style(f"\033[{mainWindowWidth}G Chat Inactive",fg="red")
+    title = click.style("Relay CLI Edition",fg="bright_yellow") + chatstatus
+    print(title)
     click.echo(line)
 
+    for message in localCache:
+        click.echo(f"{message['from']} says: \n {message['message']}")
+
+    #DRAW THE RIGHT SIDE UI
     # Header at the right edge
-    print(f"\033[{mainWindowWidth}G| Online Users")
+    print(f"\033[{4};{mainWindowWidth}H| Online Users")
     print(f"\033[{mainWindowWidth}G|" + "-" * (cols-mainWindowWidth))
 
     # Draw vertical bar
@@ -71,10 +82,27 @@ def quitapp():
     
 
 def client():
-    draw()    
+    draw()   
+    global isChatActive 
     while True:
         try:
-           cli.main(standalone_mode=False)
+            draw()
+            user_input = click.prompt("> ", prompt_suffix="")
+
+            if user_input.lower() == "chat":
+                isChatActive = not isChatActive
+                draw()
+                continue
+
+            if isChatActive:
+                sio.emit("message", {"from": "skib", "message": str(user_input)})
+            else:
+                cmd = user_input.lower()
+                if cmd == "q" or cmd == "quit":
+                    break
+                else:
+                    click.secho(f"Unknown command: {user_input}", fg="red")
+
         except click.exceptions.Abort:
            break 
 
