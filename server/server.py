@@ -16,10 +16,11 @@ from model.user import Users, initUserTable
 # from model.serverUser import ServerUser, initServerUser
 import datetime
 import json
+import requests
 
 @app.route('/')
 def home():
-    return "Relay's Server"
+    return "Relay Server"
 
 @app.route("/signup/", methods=["POST"]) 
 def signup():
@@ -45,6 +46,35 @@ def signup():
                                 )
     return resp
 
+@app.route('/login/', methods=['POST'])  
+def login_user(): 
+    data = request.get_json()
+    loginID = data["userID"]
+    loginPW = data["password"]
+    user = Users.query.filter_by(userID=loginID).first()
+    if not user:
+        response = {"error":"User does not exist!"}
+        return jsonify(response)
+    
+    if check_password_hash(user.password, loginPW):
+        token = jwt.encode({'userID' : user.userID, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=60)}, app.config['SECRET_KEY'], algorithm="HS256")
+        response = {"jwt":token}
+        json_data = json.dumps(response)
+        resp = Response(json_data, content_type="application/json")
+        
+        resp.set_cookie("jwt", token,
+                                max_age=3600,
+                                secure=True,
+                                httponly=True,
+                                path='/',
+                                samesite='None',  # cite
+                                domain="172.27.233.236"
+                                )
+        return resp
+
+
+    return make_response('Invalid Credentials',  401, {'Authentication': '"login required"'})
+
 @app.before_request
 def before_request(): 
     allowed_origin = request.headers.get('Origin')
@@ -52,8 +82,12 @@ def before_request():
         cors._origins = allowed_origin
         
 @socketio.on('join') # a room is used to choose who to send data to
-def join(room):
-    join_room(room)
+def join(data):
+    print(data)
+    room = data["roomID"]
+    sid = data["sid"]
+    join_room(room,sid)
+    # print(room)
         
 @socketio.on('message')
 def message(data):

@@ -23,6 +23,7 @@ class FSM(Enum):
     CHANNEL=1
     SIGNUP=2
     LOGIN=3
+    JOIN=4
 
 fsmState = FSM.BOOT
 
@@ -86,8 +87,9 @@ def draw():
             draw()
         if(prompt == "2"):
             fsmState = FSM.LOGIN
+            draw()
         if(prompt == "3"):
-            fsmState = FSM.CHANNEL
+            fsmState = FSM.JOIN
             draw()
         return
     if(fsmState == FSM.SIGNUP):
@@ -97,6 +99,21 @@ def draw():
         payload = {"userID":userID,"username":username,"password":password}
         localSession["jwt"] = requests.post("http://127.0.0.1:6221/signup/",json=payload).json()
         fsmState = FSM.BOOT
+        draw()
+        return
+    if(fsmState == FSM.LOGIN):
+        userID = click.prompt("Enter your userID")
+        password = click.prompt("Enter your password")
+        payload = {"userID":userID,"password":password}
+        localSession["jwt"] = requests.post("http://127.0.0.1:6221/login/",json=payload).json()
+        fsmState = FSM.BOOT
+        draw()
+        return
+    if(fsmState == FSM.JOIN):
+        roomID = click.prompt(click.style("Enter room ID", fg="yellow"))
+        sio.emit({"join":{"sid":sio.get_sid(),
+                          "roomID":roomID}})
+        fsmState = FSM.CHANNEL
         draw()
         return
     if(fsmState == FSM.CHANNEL and localSession.get("jwt") == None):
