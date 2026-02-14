@@ -13,4 +13,5 @@ connection = sqlite3.connect(f"./{init.DATABASE_NAME}.db")
 def home():
     return "eventually lets put something cool here"
 
+
 app.run()
