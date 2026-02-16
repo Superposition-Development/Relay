@@ -1,9 +1,12 @@
 function test() {
     let payload =
     {
-        "message":"test"
+        "userID":"user",
+        "username":"username",
+        "password":"password",
+        "pfp":"pfpbase64"
     }
-    fetch(serverAddress + testEndpoint,
+    fetch(serverAddress + signupEndpoint,
         {
             method: "POST",
             headers: {
