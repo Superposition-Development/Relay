@@ -1,18 +1,70 @@
-function test() {
+function signup() {
     let payload =
     {
-        "userID":"user",
-        "username":"username",
-        "password":"password",
-        "pfp":"pfpbase64"
+        "userID": "user",
+        "username": "username",
+        "password": "password",
+        "pfp": "pfpbase64"
     }
     fetch(serverAddress + signupEndpoint,
         {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                // 'Authorization': `Bearer ${localStorage.getItem("jwt")}`
             },
+            body: JSON.stringify(payload)
+        }).then(response => {
+            if (response.ok) {
+                return response.json()
+            }
+            throw new Error("Network response failed")
+        }).then(data => {
+            setCookie("RelayJWT",data["RelayJWT"],60)
+        })
+        .catch(error => {
+            console.error("There was a problem with the fetch", error);
+        });
+}
+
+function login() {
+    let payload =
+    {
+        "userID": "user",
+        "password": "password",
+    }
+    fetch(serverAddress + loginEndpoint,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload)
+        }).then(response => {
+            if (response.ok) {
+                console.log(response)
+                return response.json()
+            }
+            throw new Error("Network response failed")
+        }).then(data => {
+            console.log(data)
+            setCookie("RelayJWT",data["RelayJWT"],60)
+        })
+        .catch(error => {
+            console.error("There was a problem with the fetch", error);
+        });
+}
+
+function gatekeep() {
+    payload={"GOON":"GOON"}
+    let JWTCookie = getCookieByName("RelayJWT")
+    fetch(serverAddress + testEndpoint,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                'Authorization': `Bearer ${JWTCookie}`,
+            },
+            credentials:"include",
             body: JSON.stringify(payload)
         }).then(response => {
             if (response.ok) {
