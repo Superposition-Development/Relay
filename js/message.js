@@ -54,10 +54,13 @@ function login() {
         });
 }
 
-function gatekeep() {
-    payload={"GOON":"GOON"}
+function createServer() {
+    payload = {
+        "name": "server name",
+        "pfp": "too much work"
+    }
     let JWTCookie = getCookieByName("RelayJWT")
-    fetch(serverAddress + testEndpoint,
+    fetch(serverAddress + createServerEndpoint,
         {
             method: "POST",
             headers: {
