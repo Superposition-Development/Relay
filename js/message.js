@@ -59,7 +59,7 @@ function createServer() {
         "name": "server name",
         "pfp": "too much work"
     }
-    let JWTCookie = getCookieByName("RelayJWT")
+    let JWTCookie = getCookie("RelayJWT")
     fetch(serverAddress + createServerEndpoint,
         {
             method: "POST",
