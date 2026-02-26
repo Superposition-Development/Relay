@@ -1,17 +1,17 @@
-function createServer() {
-    payload = {
-        "name": "server name",
-        "pfp": "too much work"
+function signup() {
+    let payload =
+    {
+        "userID": "user",
+        "username": "username",
+        "password": "password",
+        "pfp": "pfpbase64"
     }
-    let JWTCookie = getCookie("RelayJWT")
-    fetch(serverAddress + createServerEndpoint,
+    fetch(serverAddress + signupEndpoint,
         {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                'Authorization': `Bearer ${JWTCookie}`,
             },
-            credentials:"include",
             body: JSON.stringify(payload)
         }).then(response => {
             if (response.ok) {
@@ -19,30 +19,35 @@ function createServer() {
             }
             throw new Error("Network response failed")
         }).then(data => {
-            console.log(data)
+            setCookie("RelayJWT",data["RelayJWT"],60)
         })
         .catch(error => {
             console.error("There was a problem with the fetch", error);
         });
 }
 
-function getServers() {
-    let JWTCookie = getCookie("RelayJWT")
-    fetch(serverAddress + getServerEndpoint,
+function login() {
+    let payload =
+    {
+        "userID": "user",
+        "password": "password",
+    }
+    fetch(serverAddress + loginEndpoint,
         {
-            method: "GET",
+            method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                'Authorization': `Bearer ${JWTCookie}`,
             },
-            credentials:"include"
+            body: JSON.stringify(payload)
         }).then(response => {
             if (response.ok) {
+                console.log(response)
                 return response.json()
             }
             throw new Error("Network response failed")
         }).then(data => {
             console.log(data)
+            setCookie("RelayJWT",data["RelayJWT"],60)
         })
         .catch(error => {
             console.error("There was a problem with the fetch", error);
