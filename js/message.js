@@ -4,47 +4,14 @@ function createServer() {
         "pfp": "too much work"
     }
     let JWTCookie = getCookie("RelayJWT")
-    fetch(serverAddress + createServerEndpoint,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                'Authorization': `Bearer ${JWTCookie}`,
-            },
-            credentials:"include",
-            body: JSON.stringify(payload)
-        }).then(response => {
-            if (response.ok) {
-                return response.json()
-            }
-            throw new Error("Network response failed")
-        }).then(data => {
-            console.log(data)
-        })
-        .catch(error => {
-            console.error("There was a problem with the fetch", error);
-        });
+    POST(payload,
+        JWTCookie,
+        serverAddress + createServerEndpoint)
 }
 
 function getServers() {
     let JWTCookie = getCookie("RelayJWT")
-    fetch(serverAddress + getServerEndpoint,
-        {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                'Authorization': `Bearer ${JWTCookie}`,
-            },
-            credentials:"include"
-        }).then(response => {
-            if (response.ok) {
-                return response.json()
-            }
-            throw new Error("Network response failed")
-        }).then(data => {
-            console.log(data)
-        })
-        .catch(error => {
-            console.error("There was a problem with the fetch", error);
-        });
+    GET(JWTCookie,
+        serverAddress + getServerEndpoint)
+    
 }
