@@ -1,4 +1,4 @@
-function signup() {
+async function signup() {
     let payload =
     {
         "userID": "user",
@@ -7,10 +7,12 @@ function signup() {
         "pfp": "pfpbase64"
     }
 
-    data = POST(payload,
+    data = await POST(payload,
         null,
         serverAddress + signupEndpoint
     )
+
+    console.log(data)
 
     if(data["data"] != null)
     {
@@ -18,14 +20,14 @@ function signup() {
     }
 }
 
-function login() {
+async function login() {
     let payload =
     {
         "userID": "user",
         "password": "password",
     }
 
-    data = POST(payload,
+    data = await POST(payload,
         null,
         serverAddress + loginEndpoint
     )

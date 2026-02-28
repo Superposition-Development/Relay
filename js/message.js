@@ -9,9 +9,32 @@ function createServer() {
         serverAddress + createServerEndpoint)
 }
 
-function getServers() {
+async function getServers() {
     let JWTCookie = getCookie("RelayJWT")
-    GET(JWTCookie,
+    let res = await GET(JWTCookie,
         serverAddress + getServerEndpoint)
-    
+    console.log(res)
+}
+
+function createChannel() {
+    payload = {
+        "name": "server name",
+        "serverID": 1
+    }
+    let JWTCookie = getCookie("RelayJWT")
+    POST(payload,
+        JWTCookie,
+        serverAddress + createChannelEndpoint)
+}
+
+
+async function getChannels() {
+    payload = {
+        "serverID": 1
+    }
+    let JWTCookie = getCookie("RelayJWT")
+    let res  = await POST(payload,
+        JWTCookie,
+        serverAddress + getChannelEndpoint)
+    console.log(res)
 }

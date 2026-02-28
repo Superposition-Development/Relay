@@ -1,58 +1,46 @@
-function POST(payload,authKey,address)
-{
-    result = {"data":null,
-              "error":null
-    }
-
-    fetch(address,
-        {
+async function POST(payload, authKey, address) {
+    try {
+        const response = await fetch(address, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                'Authorization': `Bearer ${authKey}`,
+                "Authorization": `Bearer ${authKey}`,
             },
-            credentials:"include",
+            credentials: "include",
             body: JSON.stringify(payload)
-        }).then(response => {
-            if (response.ok) {
-                return response.json()
-            }
-            throw new Error("Network response failed")
-        }).then(data => {
-            result["data"] = data
-        })
-        .catch(error => {
-            result["error"] = error
         });
 
-    return result 
+        if (!response.ok) {
+            throw new Error("Network response failed");
+        }
+
+        const data = await response.json();
+        return { data: data, error: null };
+
+    } catch (error) {
+        return { data: null, error: error };
+    }
 }
 
-function GET(authKey,address)
-{
-    result = {"data":null,
-              "error":null
-    }
-
-    fetch(address,
-        {
+async function GET(authKey, address) {
+    try {
+        const response = await fetch(address, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
-                'Authorization': `Bearer ${authKey}`,
+                "Authorization": `Bearer ${authKey}`,
             },
-            credentials:"include"
-        }).then(response => {
-            if (response.ok) {
-                return response.json()
-            }
-            throw new Error("Network response failed")
-        }).then(data => {
-            result["data"] = data
-        })
-        .catch(error => {
-            result["error"] = error
+            credentials: "include",
         });
 
-    return result 
+        if (!response.ok) {
+            throw new Error("Network response failed");
+        }
+
+        const data = await response.json();
+        return { data: data, error: null };
+
+    } catch (error) {
+        return { data: null, error: error };
+    }
 }
