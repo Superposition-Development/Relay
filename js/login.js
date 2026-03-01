@@ -32,6 +32,8 @@ async function login() {
         serverAddress + loginEndpoint
     )
 
+    console.log(data)
+
     if(data["data"] != null)
     {
         setCookie("RelayJWT",data["data"]["RelayJWT"],60)
