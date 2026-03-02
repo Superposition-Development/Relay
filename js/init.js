@@ -8,3 +8,8 @@ let getServerEndpoint = "/getServers"
 
 let createChannelEndpoint = "/createChannel"
 let getChannelEndpoint = "/getChannels"
+
+//socket endpoints
+let sendMessageEndpoint = "/sendMessage"
+let getMessagesEndpoint = "/getMessages"
+

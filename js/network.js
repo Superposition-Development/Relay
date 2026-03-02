@@ -44,3 +44,58 @@ async function GET(authKey, address) {
         return { data: null, error: error };
     }
 }
+
+//note that websocket addresses are just "ws://[server address just without http://]"
+//and given https exists wss also does, could be complicated cause localhost uses wss and i
+//dont know too much abt port forwarding or wtv when ppl go to deploy their own
+
+/*
+
+websocket endpoint docs until we get a better oen
+
+client->server
+
+{
+ clause:sendMessage,
+ content:{}
+}
+
+
+server->client
+{
+ clause:recieveMessage,
+ content:{}
+}
+
+*/
+
+let socket = null
+
+function registerWebsocket(address) {
+    socket = new WebSocket(address)
+    socket.addEventListener("open", (e) => {
+        // socket.send("data")
+    })
+
+    socket.addEventListener("message", (event) => {
+        console.log("Message from server:", event.data);
+    });
+
+    socket.addEventListener("close", () => {
+        console.log("Connection closed");
+    });
+
+    socket.addEventListener("error", (error) => {
+        console.error("WebSocket error:", error);
+    });
+}
+
+function sendWebsocketMessage(message)
+{
+    if(socket == null || socket.readyState != WebSocket.OPEN)
+    {
+        console.error("Websocket offline") //dont do it like this find some modal or smth
+        return
+    }
+    socket.send(message)
+}
