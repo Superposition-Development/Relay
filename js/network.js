@@ -90,8 +90,17 @@ function registerWebsocket(address) {
     });
 }
 
-function sendWebsocketMessage(message)
+/*
+expected data
+
 {
+ message:caseType,
+ content: (everything else is dependent on what the endpoint wants, just make message:a valid casetype)
+}
+*/
+function sendWebsocketJSON(message)
+{
+    message = JSON.stringify(message)
     if(socket == null || socket.readyState != WebSocket.OPEN)
     {
         console.error("Websocket offline") //dont do it like this find some modal or smth
@@ -99,3 +108,4 @@ function sendWebsocketMessage(message)
     }
     socket.send(message)
 }
+
