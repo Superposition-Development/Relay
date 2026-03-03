@@ -79,6 +79,7 @@ function registerWebsocket(address) {
 
     socket.addEventListener("message", (event) => {
         console.log("Message from server:", event.data);
+        console.log(JSON.parse(event.data))
     });
 
     socket.addEventListener("close", () => {
