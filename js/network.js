@@ -96,6 +96,7 @@ expected data
 
 {
  message:caseType,
+ authKey:JWT,
  content: (everything else is dependent on what the endpoint wants, just make message:a valid casetype)
 }
 */
