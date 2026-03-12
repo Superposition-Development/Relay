@@ -89,6 +89,8 @@ function registerWebsocket(address) {
     socket.addEventListener("error", (error) => {
         console.error("WebSocket error:", error);
     });
+    let registerMessage = {"message":"register","authKey":getCookie("RelayJWT")}
+    socket.send(registerMessage)
 }
 
 /*
