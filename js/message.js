@@ -16,13 +16,13 @@ async function getServers() {
     console.log(res)
 }
 
-function createChannel() {
+async function createChannel() {
     payload = {
         "name": "server name",
         "serverID": 1
     }
     let JWTCookie = getCookie("RelayJWT")
-    POST(payload,
+    await POST(payload,
         JWTCookie,
         serverAddress + createChannelEndpoint)
 }
@@ -36,5 +36,17 @@ async function getChannels() {
     let res  = await POST(payload,
         JWTCookie,
         serverAddress + getChannelEndpoint)
+    console.log(res)
+}
+
+async function joinServer()
+{
+    payload = {
+        "serverID": 1
+    }
+    let JWTCookie = getCookie("RelayJWT")
+    let res  = await POST(payload,
+        JWTCookie,
+        serverAddress + joinServerEndpoint)
     console.log(res)
 }

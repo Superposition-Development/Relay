@@ -5,6 +5,7 @@ let loginEndpoint = "/login"
 
 let createServerEndpoint = "/createServer"
 let getServerEndpoint = "/getServers"
+let joinServerEndpoint = "/joinServer"
 
 let createChannelEndpoint = "/createChannel"
 let getChannelEndpoint = "/getChannels"
