@@ -81,6 +81,8 @@ function registerWebsocket(address) {
     socket.addEventListener("message", (event) => {
         console.log("Message from server:", event.data);
         console.log(JSON.parse(event.data))
+        let websocketEvent = new CustomEvent("WebsocketMessage",{detail:JSON.parse(event.data)})
+        document.dispatchEvent(websocketEvent)
     });
 
     socket.addEventListener("close", () => {

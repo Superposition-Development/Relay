@@ -21,3 +21,12 @@ async function joinCall()
 
 //brb, reminder ot add smth abt globalPeer.addIceCandidate(new RTCIceCandidate())
 //make the websocket fire an event and add event listeners across the files 
+
+document.addEventListener("WebsocketMessage",function(e)
+{
+    console.log(e)
+    switch(e["message"])
+    {
+        
+    }
+})
