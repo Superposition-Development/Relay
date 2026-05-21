@@ -1,6 +1,7 @@
 :root {
     --topInset: 35px;
-    --browserInset: 66px;
+    --browserInset: 80px;
+    --bottomInset:56px;
 }
 
 body
@@ -32,9 +33,22 @@ body
 #serverBrowser
 {
     position: relative;
-    left:0;
-    top:0;
-    height: 100%;
+    left: 0;
+    top: 0;
+    height: calc(100% - var(--bottomInset));
     background-color: green;
     width: var(--browserInset);
+    display: grid;
+    grid-auto-flow: row;
+    align-content: start;
+    justify-content: center;
+    overflow: scroll;
+}
+
+.serverIcon
+{
+    width:48px;
+    height:48px;
+    margin-top: 10px;
+    background-color: yellow;
 }
