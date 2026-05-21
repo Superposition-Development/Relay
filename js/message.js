@@ -1,7 +1,7 @@
-function createServer() {
+function createServer(serverName, pfp) {
     payload = {
-        "name": "server name",
-        "pfp": "too much work"
+        "name": serverName,
+        "pfp": pfp
     }
     let JWTCookie = getCookie("RelayJWT")
     POST(payload,
@@ -16,10 +16,10 @@ async function getServers() {
     console.log(res)
 }
 
-async function createChannel() {
+async function createChannel(channelName, serverID) {
     payload = {
-        "name": "server name",
-        "serverID": "1"
+        "name": channelName,
+        "serverID": serverID
     }
     let JWTCookie = getCookie("RelayJWT")
     await POST(payload,
@@ -28,9 +28,9 @@ async function createChannel() {
 }
 
 
-async function getChannels() {
+async function getChannels(serverID) {
     payload = {
-        "serverID": 1
+        "serverID": serverID
     }
     let JWTCookie = getCookie("RelayJWT")
     let res  = await POST(payload,
@@ -39,10 +39,10 @@ async function getChannels() {
     console.log(res)
 }
 
-async function joinServer()
+async function joinServer(serverID)
 {
     payload = {
-        "serverID": 1
+        "serverID": serverID
     }
     let JWTCookie = getCookie("RelayJWT")
     let res  = await POST(payload,
@@ -51,12 +51,12 @@ async function joinServer()
     console.log(res)
 }
 
-async function sendMessage()
+async function sendMessage(serverID,channelID,content)
 {
     payload = {
-        "serverID": "1",
-        "channelID":"1",
-        "content":"yipee"
+        "serverID": serverID,
+        "channelID":channelID,
+        "content":content
     }
     let JWTCookie = getCookie("RelayJWT")
     let res  = await POST(payload,

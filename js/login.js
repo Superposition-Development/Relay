@@ -1,10 +1,10 @@
-async function signup() {
+async function signup(userID,username,password,pfp) {
     let payload =
     {
-        "userID": "user",
-        "username": "username",
-        "password": "password",
-        "pfp": "pfpbase64"
+        "userID": userID,
+        "username": username,
+        "password": password,
+        "pfp": pfp
     }
 
     data = await POST(payload,
@@ -20,11 +20,11 @@ async function signup() {
     }
 }
 
-async function login() {
+async function login(userID,password) {
     let payload =
     {
-        "userID": "user",
-        "password": "password",
+        "userID": userID,
+        "password": password,
     }
 
     data = await POST(payload,
