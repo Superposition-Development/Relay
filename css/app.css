@@ -1,6 +1,6 @@
 :root {
     --topInset: 35px;
-    --browserInset: 80px;
+    --sideInset: 80px;
     --bottomInset:56px;
 }
 
@@ -30,6 +30,8 @@ body
     height: 100%;
 }
 
+/*server browser stuff*/
+
 #serverBrowser
 {
     position: relative;
@@ -37,12 +39,12 @@ body
     top: 0;
     height: calc(100% - var(--bottomInset));
     background-color: green;
-    width: var(--browserInset);
+    width: var(--sideInset);
     display: grid;
     grid-auto-flow: row;
     align-content: start;
     justify-content: center;
-    overflow: scroll;
+    overflow-y: scroll;
 }
 
 .serverIcon
@@ -51,4 +53,23 @@ body
     height:48px;
     margin-top: 10px;
     background-color: yellow;
+    background-size: cover;
+    border-radius:10px;
+    cursor:pointer;
+    transition:all 0.1s;
+}
+
+.serverIcon:hover
+{
+    border-radius:20px;
+}
+
+/*channel information*/
+#channelHolder{
+    background-color:bisque;
+    position:fixed;
+    left:var(--sideInset);
+    width:250px;
+    height:100%;
+    top:var(--topInset);
 }
