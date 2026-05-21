@@ -95,6 +95,8 @@ body
     width:100%;
     height:var(--serverNameSize);
     background-color: aqua;
+    align-items:center;
+    display:flex;
 }
 
 #channelHeader
@@ -115,4 +117,22 @@ body
     left:0;
     width:100%;
     height:70px;
+}
+
+#channels
+{
+    display: grid;
+    grid-auto-flow: row;
+    position: absolute;
+    top: var(--serverNameSize);
+    width: 100%;
+    height: 100%;
+    align-content: start;
+}
+
+.channel
+{
+    width:100%;
+    height:50px;
+    background-color: green;
 }

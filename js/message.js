@@ -64,3 +64,4 @@ async function sendMessage(serverID,channelID,content)
         serverAddress + sendMessageEndpoint)
     console.log(res)
 }
+
