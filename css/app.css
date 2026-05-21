@@ -4,6 +4,7 @@
     --bottomInset:56px;
     --channelHolderSize:250px;
     --serverInfoSize:3px;
+    --serverNameSize:50px;
 }
 
 body
@@ -86,7 +87,32 @@ body
     top:var(--topInset);
 }
 
-#serverInformation
+#serverName
 {
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:var(--serverNameSize);
+    background-color: aqua;
+}
 
+#channelHeader
+{
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:var(--serverNameSize);
+    background-color:chocolate;
+}
+
+#typingField
+{
+    background-color:blueviolet;
+    position:absolute;
+    bottom:var(--topInset);
+    left:0;
+    width:100%;
+    height:70px;
 }
