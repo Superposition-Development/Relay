@@ -20,6 +20,7 @@ body {
     overflow: hidden;
 
     background-color: black;
+    font-family:sans-serif;
 }
 
 /* header */
@@ -195,15 +196,15 @@ body {
     padding: 10px;
 }
 
-.message {
+/* .message {
     min-height: 50px;
 
     background-color: rgba(255, 255, 255, 0.15);
 
     margin-bottom: 10px;
 
-    border-radius: 10px;
-}
+    position:relative;
+} */
 
 /* typing  */
 
@@ -229,6 +230,45 @@ body {
     padding: 10px;
 
     font-size: 16px;
+}
+
+.messageProfile
+{
+    height:50px;
+    width:50px;
+}
+
+.messagePFP
+{
+     background-image: url(https://avatars.githubusercontent.com/u/115603886?v=4);
+    width: 50px;
+    height: 50px;
+    background-size: cover;
+    border-radius: 50%;
+}
+
+.message {
+    min-height: 50px;
+
+    background-color: rgba(255, 255, 255, 0.15);
+
+    margin-bottom: 10px;
+
+    display: flex;
+    align-items: flex-start;
+
+    padding: 10px;
+    gap: 10px;
+}
+
+.messageContentWrapper {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+    flex: 1;
+
+    overflow-wrap: break-word;
 }
 
 /* #serverInformation {
