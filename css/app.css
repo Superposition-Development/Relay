@@ -1,157 +1,242 @@
 :root {
     --topInset: 35px;
     --sideInset: 80px;
-    --bottomInset:56px;
-    --channelHolderSize:250px;
-    --serverInfoSize:3px;
-    --serverNameSize:50px;
+    --channelHolderSize: 250px;
+    --serverNameSize: 50px;
 }
 
-body
-{
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+
+    width: 100%;
+    height: 100%;
+
+    overflow: hidden;
+
     background-color: black;
 }
 
-#header
-{
+/* header */
+
+#header {
     position: fixed;
-    display: grid;
-    left:0;
-    top:0;
+
+    top: 0;
+    left: 0;
+
     width: 100%;
     height: var(--topInset);
+
     background-color: white;
-    grid-template-columns: repeat(3,1fr);
-}
 
-#appContent
-{
-    position: fixed;
-    top:var(--topInset);
-    left:0;
-    width: 100%;
-    height: 100%;
-}
-
-/*server browser stuff*/
-
-#serverBrowser
-{
-    position: relative;
-    left: 0;
-    top: 0;
-    height: calc(100% - var(--bottomInset));
-    background-color: green;
-    width: var(--sideInset);
     display: grid;
-    grid-auto-flow: row;
-    align-content: start;
-    justify-content: center;
-    overflow-y: scroll;
+    grid-template-columns: repeat(3, 1fr);
+
+    z-index: 100;
 }
 
-.serverIcon
-{
-    width:48px;
-    height:48px;
+#appContent {
+    position: fixed;
+
+    top: var(--topInset);
+    left: 0;
+
+    width: 100%;
+    height: calc(100vh - var(--topInset));
+
+    display: flex;
+
+    overflow: hidden;
+}
+
+/* 
+   server browser
+*/
+
+#serverBrowser {
+    width: var(--sideInset);
+
+    background-color: green;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    flex-shrink: 0;
+}
+
+.serverIcon {
+    width: 48px;
+    height: 48px;
+
     margin-top: 10px;
+
     background-color: yellow;
     background-size: cover;
-    border-radius:10px;
-    cursor:pointer;
-    transition:all 0.1s;
+
+    border-radius: 10px;
+
+    cursor: pointer;
+
+    transition: all 0.1s;
 }
 
-.serverIcon:hover
-{
-    border-radius:20px;
+.serverIcon:hover {
+    border-radius: 20px;
 }
 
-/*channel information*/
-#channelHolder{
-    background-color:bisque;
-    position:fixed;
-    left:var(--sideInset);
-    width:var(--channelHolderSize);
-    height:100%;
-    top:var(--topInset);
+
+/* channelholder */
+
+#channelHolder {
+    width: var(--channelHolderSize);
+
+    background-color: bisque;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    flex-shrink: 0;
 }
 
-#chat
-{
-    background-color:brown;
-    position:fixed;
-    left:calc(var(--sideInset) + var(--channelHolderSize));
-    width:100%;
-    height:100%;
-    top:var(--topInset);
-}
+/* server name */
 
-#serverName
-{
-    position:absolute;
-    left:0;
-    top:0;
-    width:100%;
-    height:var(--serverNameSize);
+#serverName {
+    height: var(--serverNameSize);
+
     background-color: aqua;
-    align-items:center;
-    display:flex;
+
+    display: flex;
+    align-items: center;
+
+    padding-left: 10px;
+
+    flex-shrink: 0;
 }
 
-#channelHeader
-{
-    position:absolute;
-    left:0;
-    top:0;
-    width:100%;
-    height:var(--serverNameSize);
-    background-color:chocolate;
+#serverNameSpan {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-#typingField
-{
-    background-color:blueviolet;
-    position:absolute;
-    bottom:var(--topInset);
-    left:0;
-    width:100%;
-    height:70px;
+/* channels */
+
+#channels {
+    flex: 1;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    display: flex;
+    flex-direction: column;
 }
 
-#channels
-{
-    display: grid;
-    grid-auto-flow: row;
-    position: absolute;
-    top: var(--serverNameSize);
+.channel {
+    min-height: 50px;
+
+    background-color: green;
+
+    display: flex;
+    align-items: center;
+
+    border-bottom: solid 2px white;
+
+    flex-shrink: 0;
+}
+
+.channelName {
+    padding-left: 10px;
+}
+
+/*chat stuff*/
+
+#chat {
+    flex: 1;
+
+    background-color: brown;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    min-width: 0;
+}
+
+
+#channelHeader {
+    height: var(--serverNameSize);
+
+    background-color: chocolate;
+
+    flex-shrink: 0;
+}
+
+#messageField {
+    flex: 1;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    background-color: darkseagreen;
+
+    padding: 10px;
+}
+
+.message {
+    min-height: 50px;
+
+    background-color: rgba(255, 255, 255, 0.15);
+
+    margin-bottom: 10px;
+
+    border-radius: 10px;
+}
+
+/* typing  */
+
+#typingField {
+    height: 70px;
+
+    background-color: blueviolet;
+
+    padding: 5px;
+
+    flex-shrink: 0;
+}
+
+#chatTextarea {
     width: 100%;
     height: 100%;
-    align-content: start;
-    overflow-y: scroll;
+
+    resize: none;
+
+    border: none;
+    outline: none;
+
+    padding: 10px;
+
+    font-size: 16px;
 }
 
-.channel
-{
-    width:100%;
-    height:50px;
-    background-color: green;
-    display:flex;
-    align-items: center;
-    border-bottom: solid 2px white;
-}
+/* #serverInformation {
+    width: 250px;
 
-.channelName
-{
-    padding-left:10px;
-}
+    background-color: #222;
 
-#messageField
-{
-    overflow-y:scroll;
-    width:100%;
-    position:absolute;
-    background-color:darkseagreen;
-    top:var(--serverNameSize);
-    height:calc(100% - 155px) ;
-}
+    flex-shrink: 0;
+
+    overflow-y: auto;
+} */
