@@ -13,7 +13,7 @@ async function getServers() {
     let JWTCookie = getCookie("RelayJWT")
     let res = await GET(JWTCookie,
         serverAddress + getServerEndpoint)
-    console.log(res)
+    return res
 }
 
 async function createChannel(channelName, serverID) {
