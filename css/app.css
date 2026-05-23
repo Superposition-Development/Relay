@@ -280,3 +280,14 @@ body {
 
     overflow-y: auto;
 } */
+
+.messageUsername
+{
+    font-weight: bold;
+}
+
+.messageDate
+{
+    font-size:10px;
+    font-weight: normal;
+}
