@@ -14,6 +14,11 @@ async function boot() {
             CreateChannelDOM(channel.id,channel.name)
         }
     }
+
+    if(channelID != null && serverID != null)
+    {
+        
+    }
 }
 
 boot()
