@@ -36,7 +36,7 @@ async function getChannels(serverID) {
     let res  = await POST(payload,
         JWTCookie,
         serverAddress + getChannelEndpoint)
-    console.log(res)
+    return res
 }
 
 async function joinServer(serverID)

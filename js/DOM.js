@@ -15,6 +15,7 @@ function router() {
     const parts = hash.split("/");
     //parts[0...n]
 }
+
 function CreateServerDOM(id,name,pfp)
 {
     let serverBrowser = document.getElementById("serverBrowser")
@@ -27,4 +28,26 @@ function CreateServerDOM(id,name,pfp)
                  navigate({"serverID":id})
              });
     serverBrowser.appendChild(serverNode)
+}
+
+function CreateChannelDOM(id,name)
+{
+    let channelHolder = document.getElementById("channels")
+    let channelNode = document.createElement("div")
+
+    /*
+    <div class="channel">
+          <span class="channelName">channel NAme</span>
+        </div>
+    */
+
+    channelNode.className = "channel"
+    channelNode.dataset.channelID = id
+    channelNode.addEventListener("click", function(){
+                 navigate({"channelID":id})
+             });
+    channelHolder.appendChild(channelNode)
+    let channelNameNode = document.createElement("span")
+    channelNameNode.innerText = name
+    channelNode.appendChild(channelNameNode)
 }
