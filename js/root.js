@@ -1,4 +1,10 @@
 async function boot() {
+
+    if(getCookie("RelayJWT") == null)
+    {
+        window.location.href = "index.html"
+    }
+
     const params = new URLSearchParams(window.location.search);
     const serverID = params.get("serverID"); // "John"
     const channelID = params.get("channelID"); // "30"

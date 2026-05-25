@@ -39,3 +39,12 @@ async function login(userID,password) {
         setCookie("RelayJWT",data["data"]["RelayJWT"],60)
     }
 }
+
+async function isUserLoggedIn()
+{
+    let JWTCookie = getCookie("RelayJWT")
+    let res = await GET(JWTCookie,
+        serverAddress + validateUserEndpoint)
+    console.log(res)
+    return res
+}

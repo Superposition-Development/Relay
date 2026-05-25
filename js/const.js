@@ -2,6 +2,7 @@ let serverAddress = "http://127.0.0.1:8080"
 
 let signupEndpoint = "/signup"
 let loginEndpoint = "/login"
+let validateUserEndpoint = "/validateUserToken"
 
 let createServerEndpoint = "/createServer"
 let getServerEndpoint = "/getServers"
