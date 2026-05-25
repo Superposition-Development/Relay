@@ -65,3 +65,24 @@ async function sendMessage(serverID,channelID,content)
     console.log(res)
 }
 
+/*MoreThan  string `json:"moreThan"`
+	ChannelID string `json:"channelID"`
+	ServerID  string `json:"serverID"`
+	MessageID string `json:"messageID"`
+	Ascending string `json:"ascending"`*/
+async function getMessages(serverID,channelID,messageID,ascending,moreThan)
+{
+    payload = {
+        "serverID": serverID,
+        "channelID":channelID,
+        "messageID":messageID,
+        "ascending":ascending.toString(),
+        "moreThan":moreThan.toString()
+    }
+    let JWTCookie = getCookie("RelayJWT")
+    let res  = await POST(payload,
+        JWTCookie,
+        serverAddress + getMessagesEndpoint)
+    console.log(res)
+}
+
