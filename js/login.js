@@ -45,6 +45,5 @@ async function isUserLoggedIn()
     let JWTCookie = getCookie("RelayJWT")
     let res = await GET(JWTCookie,
         serverAddress + validateUserEndpoint)
-    console.log(res)
     return res
 }
