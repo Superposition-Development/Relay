@@ -30,9 +30,13 @@ async function boot() {
     if(channelID != null && serverID != null)
     {
         initMessages = await getMessages(serverID,channelID,"0",false,true)
-        console.log(initMessages)
         for (const message of initMessages.data) {
-            CreateMessageDOM(message.id, message.name, message.pfp,message.content,message.timestamp,true)
+            const epochSeconds = message.timestamp;
+            const date = new Date(epochSeconds * 1000);
+            //local time string date.toString()
+            //utc time date.toUTCString()
+            //locale specific date.toLocalestring()
+            CreateMessageDOM(message.id, message.name, message.pfp,message.content," "+date.toLocaleString(),true)
         }
     }
 }
