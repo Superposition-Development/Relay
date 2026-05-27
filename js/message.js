@@ -83,6 +83,6 @@ async function getMessages(serverID,channelID,messageID,ascending,moreThan)
     let res  = await POST(payload,
         JWTCookie,
         serverAddress + getMessagesEndpoint)
-    console.log(res)
+    return res
 }
 

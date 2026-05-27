@@ -29,7 +29,11 @@ async function boot() {
 
     if(channelID != null && serverID != null)
     {
-        
+        initMessages = await getMessages(serverID,channelID,"0",false,true)
+        console.log(initMessages)
+        for (const message of initMessages.data) {
+            CreateMessageDOM(message.id, message.name, message.pfp,message.content,message.timestamp,true)
+        }
     }
 }
 

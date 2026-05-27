@@ -51,3 +51,43 @@ function CreateChannelDOM(id,name)
     channelNameNode.innerText = name
     channelNode.appendChild(channelNameNode)
 }
+
+function CreateMessageDOM(id,name,pfp,content,timestamp,shouldPrepend)
+{
+    let messageField = document.getElementById("messageField")
+    let messageNode = document.createElement("div")
+    messageNode.className = "message"
+    messageNode.dataset.messageID = id
+    if(shouldPrepend)
+    {
+        messageField.prepend(messageNode)
+    }
+    else
+    {
+        messageField.appendChild(messageNode)
+    }
+
+    let messagePFP = document.createElement("div")
+    messagePFP.className = "messagePFP"
+    messagePFP.style.backgroundImage = `url(${pfp})`
+    messageNode.appendChild(messagePFP)
+
+    let messageContentWrapper = document.createElement("div")
+    messageContentWrapper.className = "messageContentWrapper"
+    messageNode.appendChild(messageContentWrapper)
+
+    let messageUsername = document.createElement("span")
+    messageUsername.className = "messageUsername"
+    messageUsername.innerText = name
+    messageContentWrapper.appendChild(messageUsername)
+
+    let messageDate = document.createElement("span")
+    messageDate.className = "messageDate"
+    messageDate.innerText = timestamp
+    messageUsername.appendChild(messageDate)
+
+    let messageContent = document.createElement("span")
+    messageContent.className = "messageContent"
+    messageContent.innerText = content
+    messageContentWrapper.appendChild(messageContent)
+}
