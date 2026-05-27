@@ -155,6 +155,7 @@ body {
     border-bottom: solid 2px white;
 
     flex-shrink: 0;
+    cursor:pointer;
 }
 
 .channelName {

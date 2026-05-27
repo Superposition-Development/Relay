@@ -1,5 +1,6 @@
 function navigate(params) {
     const url = new URL(window.location);
+    url.searchParams.delete("channelID")
 
     Object.keys(params).forEach(key => {
         url.searchParams.set(key, params[key]);
