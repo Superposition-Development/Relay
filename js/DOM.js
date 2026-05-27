@@ -6,14 +6,7 @@ function navigate(params) {
     });
 
     history.replaceState({}, "", url);
-    router();
-}
-
-function router() {
-    const hash = window.location.hash.slice(1);
-
-    const parts = hash.split("/");
-    //parts[0...n]
+    window.dispatchEvent(new CustomEvent("navigate",{detail:"yeehaw"}))
 }
 
 function CreateServerDOM(id,name,pfp)
@@ -28,6 +21,11 @@ function CreateServerDOM(id,name,pfp)
                  navigate({"serverID":id})
              });
     serverBrowser.appendChild(serverNode)
+}
+
+function ClearChannelDOM()
+{
+    document.getElementById("channels").innerHTML = ""
 }
 
 function CreateChannelDOM(id,name)

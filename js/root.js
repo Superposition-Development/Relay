@@ -1,5 +1,6 @@
 async function boot() {
 
+    // console.log("bruh")
     if(getCookie("RelayJWT") == null)
     {
         window.location.href = "index.html"
@@ -19,9 +20,19 @@ async function boot() {
     for (const server of initServers.data) {
         CreateServerDOM(server.id, server.name, server.pfp)
     }
+    prepareDOM()
+
+}
+
+async function prepareDOM()
+{
+    const params = new URLSearchParams(window.location.search);
+    const serverID = params.get("serverID"); // "John"
+    const channelID = params.get("channelID"); // "30"
 
     if (serverID != null) {
         initChannels = await getChannels(serverID)
+        ClearChannelDOM()
         for (const channel of initChannels.data) {
             CreateChannelDOM(channel.id,channel.name)
         }
@@ -42,3 +53,7 @@ async function boot() {
 }
 
 boot()
+window.addEventListener('navigate', (e) => {
+    // console.log("navigate",e.detail);
+    prepareDOM()
+});
