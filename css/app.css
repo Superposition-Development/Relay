@@ -34,7 +34,7 @@ body {
     width: 100%;
     height: var(--topInset);
 
-    background-color: white;
+    background-color: var(--headerColor);
 
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -63,7 +63,7 @@ body {
 #serverBrowser {
     width: var(--sideInset);
 
-    background-color: green;
+    background-color: var(--serverBrowserColor);
 
     display: flex;
     flex-direction: column;
@@ -89,6 +89,7 @@ body {
     cursor: pointer;
 
     transition: all 0.1s;
+    border: 2px solid white;
 }
 
 .serverIcon:hover {
@@ -101,7 +102,7 @@ body {
 #channelHolder {
     width: var(--channelHolderSize);
 
-    background-color: bisque;
+    background-color: var(--channelBrowserColor);
 
     display: flex;
     flex-direction: column;
@@ -116,7 +117,7 @@ body {
 #serverName {
     height: var(--serverNameSize);
 
-    background-color: aqua;
+    background-color: var(--serverNameColor);
 
     display: flex;
     align-items: center;
@@ -147,7 +148,7 @@ body {
 .channel {
     min-height: 50px;
 
-    background-color: green;
+    background-color: var(--channelButtonColor);
 
     display: flex;
     align-items: center;
@@ -181,7 +182,7 @@ body {
 #channelHeader {
     height: var(--serverNameSize);
 
-    background-color: chocolate;
+    background-color: var(--chatHeaderColor);
 
     flex-shrink: 0;
 }
@@ -192,7 +193,7 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
 
-    background-color: darkseagreen;
+    background-color: var(--chatBackgroundColor);
 
     padding: 10px;
 }
@@ -212,7 +213,7 @@ body {
 #typingField {
     height: 70px;
 
-    background-color: blueviolet;
+    background-color: var(--chatInputAccent);
 
     padding: 5px;
 
@@ -231,6 +232,8 @@ body {
     padding: 10px;
 
     font-size: 16px;
+    background-color: var(--chatInputBackground);
+    color:white;
 }
 
 .messageProfile
@@ -291,4 +294,14 @@ body {
 {
     font-size:10px;
     font-weight: normal;
+}
+
+#SRD-Cosmetic
+{
+    position:absolute;
+    bottom:-25px;
+    left:var(--sideInset);
+    margin:0 0;
+    color:white;
+    font-weight:bold;
 }

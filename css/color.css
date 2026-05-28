@@ -1,0 +1,11 @@
+:root {
+    --channelBrowserColor: #161C24;
+    --serverBrowserColor: #0A0D12;
+    --channelButtonColor: white;
+    --serverNameColor: #064bb2;
+    --headerColor: #110e0f;
+    --chatHeaderColor:#394555;
+    --chatBackgroundColor:#1E2630;
+    --chatInputAccent:#2D6CDF;
+    --chatInputBackground:#121820;
+}
