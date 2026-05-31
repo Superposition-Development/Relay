@@ -75,7 +75,8 @@ function registerWebsocket(address) {
     socket = new WebSocket(address)
     socket.addEventListener("open", (e) => {
         let registerMessage = {"message":"register","authKey":getCookie("RelayJWT")}
-        socket.send(registerMessage)
+        sendWebsocketJSON(registerMessage)
+        // socket.send(registerMessage)
     })
 
     socket.addEventListener("message", (event) => {
