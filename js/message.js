@@ -56,13 +56,15 @@ async function sendMessage(serverID,channelID,content)
     payload = {
         "serverID": serverID,
         "channelID":channelID,
-        "content":content
+        "content":content,
+        "authKey":getCookie("RelayJWT"),
+        "message":"sendMessage"
     }
-    let JWTCookie = getCookie("RelayJWT")
-    let res  = await POST(payload,
-        JWTCookie,
-        serverAddress + sendMessageEndpoint)
-    console.log(res)
+    let rest = await sendWebsocketJSON(payload)
+    // let res  = await POST(payload,
+    //     JWTCookie,
+    //     serverAddress + sendMessageEndpoint)
+    // console.log(res)
 }
 
 /*MoreThan  string `json:"moreThan"`
