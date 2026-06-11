@@ -26,6 +26,7 @@
     width:500px;
     /* height:500px;     */
     z-index: 2;
+    padding:10px;
 }
 
 #modalBody div
@@ -52,4 +53,23 @@
     display: flex;
     align-items: center;
     font-size: 60px;
+}
+
+.modalTextFieldInput
+{
+    width:100%;
+}
+
+.modalPictureUploadWrapper
+{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modalPictureUpload
+{
+    width:100px;
+    aspect-ratio: 1;
+    background-color: white;
 }
