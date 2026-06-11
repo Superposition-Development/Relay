@@ -29,9 +29,11 @@
 
         <div id="modalHeader">
           <span id="modalTitle">Create Server</span>
-          <button id="modalClose">X</button>
+          <button id="modalClose" onclick="closeModal()">X</button>
         </div>
 
+        <div id="modalContent">
+          
         <div class="modalPictureUploadWrapper">
           <div class="modalPictureUpload"></div>
         </div>
@@ -40,7 +42,7 @@
           <span class="modalTextFieldLabel">Server Name</span><br>
           <textarea class="modalTextFieldInput"></textarea>
         </div>
-
+        </div>
       </div>
     </div>
 
@@ -78,7 +80,7 @@
           </div>
         </div> -->
 
-        
+
       </div>
       <div id="typingField">
         <textarea id="chatTextarea"></textarea>
@@ -93,6 +95,7 @@
   <script src="js/network.js"></script>
   <script src="js/login.js"></script>
   <script src="js/message.js"></script>
+  <script src="js/modal.js"></script>
   <script src="js/root.js"></script>
 </body>
 
