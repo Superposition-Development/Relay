@@ -28,6 +28,18 @@
     z-index: 2;
 }
 
+#modalBody div
+{
+    padding-bottom: 5px;
+}
+
+#modalClose 
+{
+    position:absolute;
+    top:0;
+    right:0;
+}
+
 #modalHeader
 {
     width: 100%;
