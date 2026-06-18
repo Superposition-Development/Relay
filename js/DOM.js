@@ -21,7 +21,7 @@ function CreateServerDOM(id,name,pfp)
     serverNode.addEventListener("click", function(){
                  navigate({"serverID":id})
              });
-    serverBrowser.appendChild(serverNode)
+    serverBrowser.prepend(serverNode)
 }
 
 function ClearChannelDOM()
