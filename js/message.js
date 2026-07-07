@@ -88,3 +88,38 @@ async function getMessages(serverID,channelID,messageID,ascending,moreThan)
     return res
 }
 
+//eventually move this type of stuff into like a "control.js" or smth
+document.addEventListener("keypress",function(e){
+
+    //don't do this!! load this from an external file somewhere!!!
+    const params = new URLSearchParams(window.location.search);
+    const serverID = params.get("serverID"); // "John"
+    const channelID = params.get("channelID"); // "30"
+    //end segment of bad practice
+    if(e.key == "Enter")
+    {
+        if(serverID == null || channelID == null)
+        {
+            return;
+        }
+        if(!e.shiftKey)
+        {
+            e.preventDefault()
+            let content = document.getElementById("chatTextarea").value
+            sendMessage(serverID,channelID,content)
+            document.getElementById("chatTextarea").value = ""
+        }
+    }
+})
+
+function shouldAutoScroll()
+{
+    return messageField.scrollHeight - messageField.scrollTop - messageField.offsetHeight < 60
+}
+
+function scrollToLatestMessage()
+{
+    let messageField = document.getElementById("messageField")
+    messageField.scrollTo(0,messageField.scrollHeight)
+}
+

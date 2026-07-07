@@ -1,14 +1,12 @@
 async function boot() {
 
     // console.log("bruh")
-    if(getCookie("RelayJWT") == null)
-    {
+    if (getCookie("RelayJWT") == null) {
         window.location.href = "index.html"
     }
 
     const jwtStatus = await isUserLoggedIn()
-    if(jwtStatus.data.status != "ok")
-    {
+    if (jwtStatus.data.status != "ok") {
         window.location.href = "index.html"
     }
 
@@ -25,8 +23,9 @@ async function boot() {
 
 }
 
-async function prepareDOM()
-{
+// document.querySelector()
+
+async function prepareDOM() {
     const params = new URLSearchParams(window.location.search);
     const serverID = params.get("serverID"); // "John"
     const channelID = params.get("channelID"); // "30"
@@ -35,21 +34,23 @@ async function prepareDOM()
         initChannels = await getChannels(serverID)
         ClearChannelDOM()
         for (const channel of initChannels.data) {
-            CreateChannelDOM(channel.id,channel.name)
+            CreateChannelDOM(channel.id, channel.name)
         }
     }
 
-    if(channelID != null && serverID != null)
-    {
-        initMessages = await getMessages(serverID,channelID,"0",false,true)
+    //eventually put in some check to see if you were scrolled to a certain point in time and dont do the autoscroll or smth dont load messages or whatever
+    if (channelID != null && serverID != null) {
+        initMessages = await getMessages(serverID, channelID, "0", false, true)
         for (const message of initMessages.data) {
             const epochSeconds = message.timestamp;
             const date = new Date(epochSeconds * 1000);
             //local time string date.toString()
             //utc time date.toUTCString()
             //locale specific date.toLocalestring()
-            CreateMessageDOM(message.id, message.name, message.pfp,message.content," "+date.toLocaleString(),true)
+            CreateMessageDOM(message.id, message.name, message.pfp, message.content, " " + date.toLocaleString(), true)
         }
+        let messageField = document.getElementById("messageField")
+        messageField.scrollTo(0, messageField.scrollHeight)
     }
 }
 
@@ -58,3 +59,19 @@ window.addEventListener('navigate', (e) => {
     // console.log("navigate",e.detail);
     prepareDOM()
 });
+
+document.addEventListener("WebsocketMessage", function (e) {
+    switch (e.detail.type) {
+        case "recieveMessage":
+            let message = e.detail.data
+            const epochSeconds = message.timestamp;
+            const date = new Date(epochSeconds * 1000);
+            let autoscroll = shouldAutoScroll()
+            CreateMessageDOM(message.id, message.name, message.pfp, message.content, " " + date.toLocaleString(), false)
+            if(autoscroll)
+            {
+                scrollToLatestMessage()
+            }
+            break;
+    }
+})
