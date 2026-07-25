@@ -10,10 +10,10 @@ import (
 )
 
 type LoginScreen struct {
-	userID   textinput.Model
-	password textinput.Model
-
-	focused int
+	userID       textinput.Model
+	password     textinput.Model
+	serverAdress string
+	focused      int
 
 	width      int
 	height     int
@@ -27,7 +27,7 @@ type LoginResponse struct {
 //go:embed logo.txt
 var Logo string
 
-func NewLoginScreen(h, w int) LoginScreen {
+func NewLoginScreen(h, w int, serverAdress string) LoginScreen {
 	userID := textinput.New()
 	userID.Width = 40
 	userID.Prompt = ""
@@ -40,11 +40,12 @@ func NewLoginScreen(h, w int) LoginScreen {
 	userID.Focus()
 
 	return LoginScreen{
-		userID:   userID,
-		password: password,
-		focused:  0,
-		height:   h,
-		width:    w,
+		userID:       userID,
+		password:     password,
+		focused:      0,
+		height:       h,
+		width:        w,
+		serverAdress: serverAdress,
 	}
 }
 
@@ -115,7 +116,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			m.focused--
 
 			if m.focused < 0 {
-				m.focused = 5
+				m.focused = 4
 			}
 
 			m.updateFocus()
@@ -135,7 +136,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					"userID":   m.userID.Value(),
 					"password": m.password.Value(),
 				}
-				data, err := Login("http://127.0.0.1:8080", payload)
+				data, err := Login("http://"+m.serverAdress, payload)
 				if err != nil {
 					m.loginError = err.Error()
 				}
@@ -151,15 +152,18 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				}
 
 			case 3:
-				//cancel
+				return m, func() tea.Msg {
+					return app.ChangeScreenMsg{
+						Screen: NewStartScreen(m.height, m.width),
+						Width:  m.width,
+						Height: m.height,
+					}
+				}
 
 			case 4:
 				//shutdown
 
 				return m, tea.Quit
-
-			case 5:
-				//options
 			}
 		}
 	}
@@ -211,7 +215,7 @@ func (m LoginScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	title := "Relay CLI Edition"
+	title := "AuthKeyGen Connection to http://" + m.serverAdress
 
 	titleBar := lipgloss.JoinHorizontal(
 		lipgloss.Top,

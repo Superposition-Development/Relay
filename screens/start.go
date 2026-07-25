@@ -120,7 +120,13 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			switch m.focused {
 
 			case 0:
-				// Username
+				return m, func() tea.Msg {
+					return app.ChangeScreenMsg{
+						Screen: NewLoginScreen(m.height, m.width, m.connect.Value()),
+						Width:  m.width,
+						Height: m.height,
+					}
+				}
 
 			case 1:
 				// Password
@@ -263,7 +269,7 @@ func (m StartScreen) View() string {
 
 		button(
 			"Browse Local Files",
-			16,
+			20,
 			m.focused == 2,
 		),
 
