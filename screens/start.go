@@ -31,7 +31,7 @@ func BrowseLocalFiles() error {
 	path := filepath.Join(configDir, "Relay")
 	switch runtime.GOOS {
 	case "windows":
-		return exec.Command("explorer", path).Start() //doesnt work for me for some reason
+		return exec.Command(`C:\Windows\explorer.exe`, path).Start()
 
 	case "darwin":
 		return exec.Command("open", path).Start()
