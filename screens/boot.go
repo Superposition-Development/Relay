@@ -68,7 +68,7 @@ func (b BootScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	case tea.KeyMsg:
 		return b, func() tea.Msg {
 			return app.ChangeScreenMsg{
-				Screen: NewLoginScreen(b.height, b.width),
+				Screen: NewStartScreen(b.height, b.width),
 				Width:  b.width,
 				Height: b.height,
 			}
@@ -118,7 +118,7 @@ func (b BootScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			} else {
 				return b, func() tea.Msg {
 					return app.ChangeScreenMsg{
-						Screen: NewLoginScreen(b.height, b.width),
+						Screen: NewStartScreen(b.height, b.width),
 						Width:  b.width,
 						Height: b.height,
 					}
