@@ -3,6 +3,11 @@ package screens
 import (
 	"Relay/app"
 	_ "embed"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,6 +20,28 @@ type StartScreen struct {
 
 	width  int
 	height int
+}
+
+func BrowseLocalFiles() error {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		fmt.Print("idk")
+	}
+
+	path := filepath.Join(configDir, "Relay")
+	switch runtime.GOOS {
+	case "windows":
+		return exec.Command("explorer", path).Start() //doesnt work for me for some reason
+
+	case "darwin":
+		return exec.Command("open", path).Start()
+
+	case "linux":
+		return exec.Command("xdg-open", path).Start()
+
+	default:
+		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+	}
 }
 
 func NewStartScreen(h, w int) StartScreen {
@@ -103,9 +130,9 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				// Password
 
 			case 2:
-
+				BrowseLocalFiles()
 			case 3:
-				//cancel
+				return m, tea.Quit
 			}
 		}
 	}
@@ -231,15 +258,23 @@ func (m StartScreen) View() string {
 		lipgloss.Top,
 
 		button(
-			"OK",
-			10,
+			"Server History",
+			16,
+			m.focused == 1,
+		),
+
+		" ",
+
+		button(
+			"Browse Local Files",
+			16,
 			m.focused == 2,
 		),
 
 		" ",
 
 		button(
-			"Cancel",
+			"Quit",
 			12,
 			m.focused == 3,
 		),
