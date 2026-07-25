@@ -27,7 +27,7 @@ type ChatScreen struct {
 	height int
 }
 
-func CreateModel(h, w int) ChatScreen {
+func CreateChatScreen(h, w int) ChatScreen {
 
 	return ChatScreen{width: w,
 		height: h}
