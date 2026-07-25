@@ -204,7 +204,7 @@ func (m SignupScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	title := "AuthKeyGen Connection to http://" + m.serverAdress
+	title := "Create Account for http://" + m.serverAdress
 
 	titleBar := lipgloss.JoinHorizontal(
 		lipgloss.Top,

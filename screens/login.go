@@ -187,7 +187,7 @@ func (m LoginScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	title := "AuthKeyGen Connection to http://" + m.serverAdress
+	title := "Login to http://" + m.serverAdress
 
 	titleBar := lipgloss.JoinHorizontal(
 		lipgloss.Top,
