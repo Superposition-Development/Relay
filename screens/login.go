@@ -122,7 +122,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			case 3:
 				return m, func() tea.Msg {
 					return app.ChangeScreenMsg{
-						Screen: NewStartScreen(m.height, m.width),
+						Screen: NewStartScreen(m.height, m.width, false),
 						Width:  m.width,
 						Height: m.height,
 					}

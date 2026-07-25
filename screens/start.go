@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,8 +17,10 @@ type StartScreen struct {
 	connect textinput.Model
 	focused int
 
-	width  int
-	height int
+	width        int
+	height       int
+	fadeIn       bool
+	fadeProgress float64
 }
 
 func BrowseLocalFiles() error {
@@ -40,7 +43,7 @@ func BrowseLocalFiles() error {
 	}
 }
 
-func NewStartScreen(h, w int) StartScreen {
+func NewStartScreen(h, w int, fadeIn bool) StartScreen {
 	connect := textinput.New()
 	connect.Width = 40
 	connect.Prompt = ""
@@ -52,36 +55,66 @@ func NewStartScreen(h, w int) StartScreen {
 		focused: 0,
 		height:  h,
 		width:   w,
+
+		fadeIn:       fadeIn,
+		fadeProgress: 0,
 	}
 }
 
-func initialStartScreen() StartScreen {
-	connect := textinput.New()
-	connect.Placeholder = ""
-	connect.CharLimit = 32
-	connect.Width = 40
-
-	connect.Prompt = ""
-
-	connect.Focus()
-
-	return StartScreen{
-		connect: connect,
-
-		focused: 0,
-
-		width:  100,
-		height: 30,
-	}
+func fadeTick() tea.Cmd {
+	return tea.Tick(
+		30*time.Millisecond,
+		func(t time.Time) tea.Msg {
+			return fadeTickMsg{}
+		},
+	)
 }
+
+func fadeColor(fadeIn bool, progress float64, r, g, b int) lipgloss.Color {
+
+	if !fadeIn {
+		return lipgloss.Color("#F5B978")
+	}
+
+	r = int(float64(r) * progress)
+	g = int(float64(g) * progress)
+	b = int(float64(b) * progress)
+
+	return lipgloss.Color(
+		fmt.Sprintf("#%02X%02X%02X", r, g, b),
+	)
+}
+
+type fadeTickMsg struct{}
 
 func (m StartScreen) Init() tea.Cmd {
-	return textinput.Blink
+	if !m.fadeIn {
+		return textinput.Blink
+	}
+
+	return tea.Batch(
+		textinput.Blink,
+		fadeTick(),
+	)
 }
 
 func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 	switch msg := msg.(type) {
+
+	case fadeTickMsg:
+		if m.fadeIn {
+			m.fadeProgress += 0.03
+
+			if m.fadeProgress >= 1 {
+				m.fadeProgress = 1
+				m.fadeIn = false
+
+				return m, nil
+			}
+
+			return m, fadeTick()
+		}
 
 	case tea.WindowSizeMsg:
 
@@ -166,7 +199,13 @@ func (m *StartScreen) updateFocus() {
 
 func (m StartScreen) View() string {
 
-	cream := lipgloss.Color("#F5B978")
+	cream := fadeColor(
+		m.fadeIn,
+		m.fadeProgress,
+		245,
+		185,
+		120,
+	)
 	black := lipgloss.Color("#000000")
 	selectedCream := lipgloss.Color("#ffdea5")
 
