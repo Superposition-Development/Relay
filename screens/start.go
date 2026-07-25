@@ -4,9 +4,7 @@ import (
 	"Relay/app"
 	_ "embed"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -23,12 +21,10 @@ type StartScreen struct {
 }
 
 func BrowseLocalFiles() error {
-	configDir, err := os.UserConfigDir()
+	path, err := app.GetLocalFilesPath()
 	if err != nil {
-		fmt.Print("idk")
+		//oh well
 	}
-
-	path := filepath.Join(configDir, "Relay")
 	switch runtime.GOOS {
 	case "windows":
 		return exec.Command(`C:\Windows\explorer.exe`, path).Start()

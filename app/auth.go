@@ -11,18 +11,10 @@ type AuthData struct {
 }
 
 func GetAuthPath() (string, error) {
-	configDir, err := os.UserConfigDir()
+	appDir, err := GetLocalFilesPath()
 	if err != nil {
-		return "", err
+		//oh well
 	}
-
-	appDir := filepath.Join(configDir, "Relay")
-
-	err = os.MkdirAll(appDir, 0700)
-	if err != nil {
-		return "", err
-	}
-
 	return filepath.Join(appDir, "auth.json"), nil
 }
 
