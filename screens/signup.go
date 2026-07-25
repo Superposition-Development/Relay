@@ -9,9 +9,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type LoginScreen struct {
+type SignupScreen struct {
 	userID       textinput.Model
 	password     textinput.Model
+	username     textinput.Model
 	serverAdress string
 	focused      int
 
@@ -20,40 +21,46 @@ type LoginScreen struct {
 	loginError string
 }
 
-type LoginResponse struct {
-	RelayJWT string `json:"RelayJWT"`
-}
+func NewSignupScreen(h, w int, serverAdress string) SignupScreen {
+	username := textinput.New()
+	username.Placeholder = ""
+	username.CharLimit = 32
+	username.Width = 40
+	username.Prompt = ""
 
-//go:embed logo.txt
-var Logo string
-
-func NewLoginScreen(h, w int, serverAdress string) LoginScreen {
 	userID := textinput.New()
+	userID.Placeholder = ""
+	userID.CharLimit = 32
 	userID.Width = 40
 	userID.Prompt = ""
 
 	password := textinput.New()
+	password.Placeholder = ""
+	password.CharLimit = 32
 	password.Width = 40
 	password.Prompt = ""
 	password.EchoMode = textinput.EchoPassword
 
-	userID.Focus()
+	username.Focus()
 
-	return LoginScreen{
+	return SignupScreen{
 		userID:       userID,
 		password:     password,
-		focused:      0,
-		height:       h,
-		width:        w,
+		username:     username,
 		serverAdress: serverAdress,
+
+		focused: 0,
+
+		width:  w,
+		height: h,
 	}
 }
 
-func (m LoginScreen) Init() tea.Cmd {
+func (m SignupScreen) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
+func (m SignupScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 	switch msg := msg.(type) {
 
@@ -74,7 +81,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 			m.focused++
 
-			if m.focused > 4 {
+			if m.focused > 5 {
 				m.focused = 0
 			}
 
@@ -84,7 +91,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			m.focused--
 
 			if m.focused < 0 {
-				m.focused = 4
+				m.focused = 5
 			}
 
 			m.updateFocus()
@@ -94,17 +101,19 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			switch m.focused {
 
 			case 0:
-				// Username
 
 			case 1:
-				// Password
 
 			case 2:
+
+			case 3:
 				payload := map[string]string{
+					"username": m.username.Value(),
 					"userID":   m.userID.Value(),
 					"password": m.password.Value(),
+					"pfp":      "",
 				}
-				data, err := Login("http://"+m.serverAdress, payload)
+				data, err := Signup("http://"+m.serverAdress, payload)
 				if err != nil {
 					m.loginError = err.Error()
 				}
@@ -119,7 +128,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					}
 				}
 
-			case 3:
+			case 4:
 				return m, func() tea.Msg {
 					return app.ChangeScreenMsg{
 						Screen: NewStartScreen(m.height, m.width),
@@ -128,10 +137,10 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					}
 				}
 
-			case 4:
+			case 5:
 				return m, func() tea.Msg {
 					return app.ChangeScreenMsg{
-						Screen: NewSignupScreen(m.height, m.width, m.serverAdress),
+						Screen: NewLoginScreen(m.height, m.width, m.serverAdress),
 						Width:  m.width,
 						Height: m.height,
 					}
@@ -146,9 +155,13 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 	case 0:
 
-		m.userID, cmd = m.userID.Update(msg)
+		m.username, cmd = m.username.Update(msg)
 
 	case 1:
+
+		m.userID, cmd = m.userID.Update(msg)
+
+	case 2:
 
 		m.password, cmd = m.password.Update(msg)
 	}
@@ -156,7 +169,8 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *LoginScreen) updateFocus() {
+func (m *SignupScreen) updateFocus() {
+	m.username.Blur()
 	m.userID.Blur()
 	m.password.Blur()
 
@@ -164,15 +178,18 @@ func (m *LoginScreen) updateFocus() {
 
 	case 0:
 
-		m.userID.Focus()
+		m.username.Focus()
 
 	case 1:
 
+		m.userID.Focus()
+
+	case 2:
 		m.password.Focus()
 	}
 }
 
-func (m LoginScreen) View() string {
+func (m SignupScreen) View() string {
 
 	cream := lipgloss.Color("#F5B978")
 	black := lipgloss.Color("#000000")
@@ -221,6 +238,20 @@ func (m LoginScreen) View() string {
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(cream).
 		Foreground(cream)
+
+	usernameLabel := labelStyle.Render(
+		"\nUsername:",
+	)
+
+	usernameField := inputStyle.Render(
+		m.username.View(),
+	)
+
+	usernameRow := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		usernameLabel,
+		usernameField,
+	)
 
 	userLabel := labelStyle.Render(
 		"\nUserID:",
@@ -279,7 +310,7 @@ func (m LoginScreen) View() string {
 		button(
 			"OK",
 			10,
-			m.focused == 2,
+			m.focused == 3,
 		),
 
 		" ",
@@ -287,15 +318,15 @@ func (m LoginScreen) View() string {
 		button(
 			"Cancel",
 			12,
-			m.focused == 3,
+			m.focused == 4,
 		),
 
 		" ",
 
 		button(
-			"Signup",
+			"Login",
 			14,
-			m.focused == 4,
+			m.focused == 5,
 		),
 	)
 
@@ -327,6 +358,7 @@ func (m LoginScreen) View() string {
 					logoStyle.Render(Logo),
 
 					"",
+					usernameRow,
 
 					"",
 
@@ -368,16 +400,14 @@ func (m LoginScreen) View() string {
 	)
 }
 
-func Login(url string, payload any) (LoginResponse, error) {
-
-	loginEndpoint := "/login"
+func Signup(url string, payload any) (LoginResponse, error) {
 
 	var data LoginResponse
 
 	err := app.POST(
 		payload,
 		"",
-		url+loginEndpoint,
+		url+app.SignupEndpoint,
 		&data,
 	)
 
