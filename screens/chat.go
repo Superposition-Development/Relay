@@ -4,6 +4,8 @@ import (
 	"Relay/app"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -18,20 +20,41 @@ var (
 type ChatScreen struct {
 	width  int
 	height int
+
+	messageInput textarea.Model
 }
 
 func CreateChatScreen(h, w int) ChatScreen {
+
+	ta := textarea.New()
+	ta.Placeholder = "Send a message..."
+	ta.Focus()
+
+	ta.Prompt = "┃ "
+	ta.CharLimit = 280
+	ta.MaxWidth = 20
+
+	ta.Placeholder = "Type a message..."
+	ta.Cursor.Style = lipgloss.NewStyle().
+		Foreground(cream)
+
+	ta.Cursor.TextStyle = lipgloss.NewStyle().
+		Foreground(cream)
+
 	return ChatScreen{
-		height: h,
-		width:  w - 1,
+		height:       h,
+		width:        w - 1,
+		messageInput: ta,
 	}
+
 }
 
 func (m ChatScreen) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
+	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 
@@ -40,12 +63,43 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		m.height = msg.Height
 
 	case tea.KeyMsg:
+
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+
+		if msg.String() == "ctrl+enter" {
+			message := m.messageInput.Value()
+
+			if message != "" {
+				m.messageInput.Reset()
+			}
+
+			return m, nil
+		}
 	}
 
-	return m, nil
+	m.messageInput, cmd = m.messageInput.Update(msg)
+
+	lines := strings.Count(
+		m.messageInput.Value(),
+		"\n",
+	) + 1
+
+	maxHeight := 5
+
+	if lines > maxHeight {
+		lines = maxHeight
+	}
+
+	if lines < 1 {
+		lines = 1
+	}
+
+	m.messageInput.SetHeight(lines)
+
+	return m, cmd
+
 }
 
 func titledBox(title string, width, height int) string {
@@ -104,6 +158,7 @@ func titledBox(title string, width, height int) string {
 		lines,
 		"\n",
 	)
+
 }
 
 func horizontalLine(width int) string {
@@ -116,22 +171,23 @@ func horizontalLine(width int) string {
 		"─",
 		width,
 	)
+
 }
 
 func chatBox(
 	width int,
 	height int,
 	topLine int,
-	bottomLine int,
 	text string,
+	input string,
 ) string {
 
 	if width < 2 {
 		width = 2
 	}
 
-	if height < 1 {
-		height = 1
+	if height < 4 {
+		height = 4
 	}
 
 	innerWidth := width - 2
@@ -151,27 +207,25 @@ func chatBox(
 			) +
 			"┤"
 
-	lines := make([]string, height)
+	lines := make(
+		[]string,
+		height,
+	)
 
 	for i := 0; i < height; i++ {
-
-		if i == topLine {
-			lines[i] = horizontal
-			continue
-		}
-
-		if i == bottomLine {
-			lines[i] = horizontal
-			continue
-		}
-
 		lines[i] = empty
 	}
 
-	if topLine > 0 && text != "" {
+	if topLine >= 0 &&
+		topLine < height {
+
+		lines[topLine] = horizontal
+	}
+
+	if topLine > 0 &&
+		text != "" {
 
 		textRow := []rune(empty)
-
 		textRunes := []rune(text)
 
 		startX := 1
@@ -190,10 +244,66 @@ func chatBox(
 		lines[topLine-1] = string(textRow)
 	}
 
+	inputLines := strings.Split(
+		input,
+		"\n",
+	)
+
+	inputHeight := len(inputLines)
+
+	dividerLine :=
+		height -
+			inputHeight -
+			2
+
+	if dividerLine <= topLine {
+		dividerLine = topLine + 1
+	}
+
+	lines[dividerLine] = horizontal
+
+	inputStartLine :=
+		dividerLine +
+			1
+
+	for i, inputLine := range inputLines {
+
+		row :=
+			inputStartLine +
+				i
+
+		if row >= height-1 {
+			break
+		}
+
+		if lipgloss.Width(inputLine) > innerWidth {
+			inputLine =
+				inputLine[:innerWidth]
+		}
+
+		padding :=
+			innerWidth -
+				lipgloss.Width(inputLine)
+
+		if padding < 0 {
+			padding = 0
+		}
+
+		lines[row] =
+			"│" +
+				inputLine +
+				strings.Repeat(
+					" ",
+					padding,
+				) +
+				"│"
+	}
+
 	return strings.Join(
 		lines,
 		"\n",
 	)
+
 }
 
 func (m ChatScreen) View() string {
@@ -214,8 +324,8 @@ func (m ChatScreen) View() string {
 		m.height -
 			5
 
-	if panelHeight < 2 {
-		panelHeight = 2
+	if panelHeight < 4 {
+		panelHeight = 4
 	}
 
 	title := "Relay"
@@ -298,8 +408,8 @@ func (m ChatScreen) View() string {
 			chatWidth,
 			panelHeight,
 			1,
-			panelHeight-2,
 			"channel name",
+			m.messageInput.Value(),
 		)
 
 	leftPanels :=
@@ -335,7 +445,8 @@ func (m ChatScreen) View() string {
 	if leftSeparatorX >= 0 &&
 		leftSeparatorX < len(separatorChars) {
 
-		separatorChars[leftSeparatorX+1] = '┬'
+		separatorChars[leftSeparatorX+1] =
+			'┬'
 	}
 
 	rightSeparatorX :=
@@ -345,7 +456,8 @@ func (m ChatScreen) View() string {
 	if rightSeparatorX >= 0 &&
 		rightSeparatorX < len(separatorChars) {
 
-		separatorChars[rightSeparatorX] = '┬'
+		separatorChars[rightSeparatorX] =
+			'┬'
 	}
 
 	separator :=
@@ -409,7 +521,8 @@ func (m ChatScreen) View() string {
 	if leftBottomX >= 0 &&
 		leftBottomX < len(bottomChars) {
 
-		bottomChars[leftBottomX+1] = '┴'
+		bottomChars[leftBottomX+1] =
+			'┴'
 	}
 
 	rightBottomX :=
@@ -419,7 +532,8 @@ func (m ChatScreen) View() string {
 	if rightBottomX >= 0 &&
 		rightBottomX < len(bottomChars) {
 
-		bottomChars[rightBottomX] = '┴'
+		bottomChars[rightBottomX] =
+			'┴'
 	}
 
 	bottom :=
@@ -439,4 +553,5 @@ func (m ChatScreen) View() string {
 			"\n",
 		),
 	)
+
 }
