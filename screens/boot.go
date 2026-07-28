@@ -68,7 +68,7 @@ func (b BootScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	case tea.KeyMsg:
 		return b, func() tea.Msg {
 			return app.ChangeScreenMsg{
-				Screen: NewStartScreen(b.height, b.width, true),
+				Screen: CreateChatScreen(b.height, b.width),
 				Width:  b.width,
 				Height: b.height,
 			}

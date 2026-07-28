@@ -119,6 +119,7 @@ func (m SignupScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				}
 				if data.RelayJWT != "" {
 					app.SaveToken(data.RelayJWT)
+					app.SetCurrentServerAddress(m.serverAdress)
 					return m, func() tea.Msg {
 						return app.ChangeScreenMsg{
 							Screen: CreateChatScreen(m.height, m.width),
