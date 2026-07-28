@@ -5,7 +5,24 @@ import (
 	"path/filepath"
 )
 
+type InteractionMode int
+
+const (
+	Default InteractionMode = iota
+	Write
+)
+
+func (im InteractionMode) String() string {
+	return stateName[im]
+}
+
+var stateName = map[InteractionMode]string{
+	Default: "default",
+	Write:   "write",
+}
+
 var currentServerAddress = ""
+var CurrentInteractionMode = Default
 
 func SetCurrentServerAddress(address string) {
 	currentServerAddress = address

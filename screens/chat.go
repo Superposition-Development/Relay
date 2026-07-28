@@ -63,19 +63,29 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		m.height = msg.Height
 
 	case tea.KeyMsg:
-
-		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
-		}
-
-		if msg.String() == "ctrl+enter" {
-			message := m.messageInput.Value()
-
-			if message != "" {
-				m.messageInput.Reset()
+		switch msg.String() {
+		case "ctrl+w":
+			if app.CurrentInteractionMode == app.Write {
+				app.CurrentInteractionMode = app.Default
+			} else {
+				app.CurrentInteractionMode = app.Write
 			}
-
-			return m, nil
+		case "ctrl+s":
+			if app.CurrentInteractionMode == app.Write {
+				SendMessage(&m)
+			}
+		case "enter":
+			if app.CurrentInteractionMode != app.Write {
+				SendMessage(&m)
+				return m, cmd
+			}
+		case "ctrl+c":
+			return m, tea.Quit
+		case "tab":
+			if app.CurrentInteractionMode == app.Write {
+				value := m.messageInput.Value()
+				m.messageInput.SetValue(value + "    ")
+			}
 		}
 	}
 
@@ -553,5 +563,14 @@ func (m ChatScreen) View() string {
 			"\n",
 		),
 	)
+
+}
+
+func SendMessage(m *ChatScreen) {
+	message := m.messageInput.Value()
+
+	if message != "" {
+		m.messageInput.Reset()
+	}
 
 }
