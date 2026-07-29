@@ -2,11 +2,10 @@ package screens
 
 import (
 	"strings"
+	"time"
 
 	"Relay/app"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -14,46 +13,52 @@ import (
 var (
 	cream       = lipgloss.Color("#F5B978")
 	borderStyle = lipgloss.NewStyle().Foreground(cream)
+	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#1a1a1a")).Background(cream)
 )
 
+type tickMsg time.Time
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
 type ChatScreen struct {
-	width        int
-	height       int
-	messageInput textarea.Model
+	width       int
+	height      int
+	inputBuffer string
+	cursorPos   int
+	cursorBlink bool
 }
 
 func CreateChatScreen(h, w int) ChatScreen {
-	ta := textarea.New()
-	ta.Placeholder = "Type a message..."
-	ta.Focus()
-
-	ta.Prompt = "┃ "
-	ta.CharLimit = 280
-	ta.MaxWidth = 20
-
-	ta.Cursor.Style = lipgloss.NewStyle().Foreground(cream)
-	ta.Cursor.TextStyle = lipgloss.NewStyle().Foreground(cream)
-
 	return ChatScreen{
-		height:       h,
-		width:        w - 1,
-		messageInput: ta,
+		height:      h,
+		width:       w - 1,
+		inputBuffer: "",
+		cursorPos:   0,
+		cursorBlink: true,
 	}
 }
 
 func (m ChatScreen) Init() tea.Cmd {
-	return textinput.Blink
+	return tickCmd()
 }
 
 func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
+	case tickMsg:
+		m.cursorBlink = !m.cursorBlink
+		return m, tickCmd()
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 
 	case tea.KeyMsg:
+		m.cursorBlink = true
+
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -71,25 +76,50 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 		case "enter":
-			if app.CurrentInteractionMode != app.Write {
+			if app.CurrentInteractionMode == app.Write {
+				runes := []rune(m.inputBuffer)
+				m.inputBuffer = string(runes[:m.cursorPos]) + "\n" + string(runes[m.cursorPos:])
+				m.cursorPos++
+			} else {
 				SendMessage(&m)
-				return m, cmd
+				return m, nil
 			}
 
 		case "tab":
 			if app.CurrentInteractionMode == app.Write {
-				value := m.messageInput.Value()
-				m.messageInput.SetValue(value + "    ")
+				runes := []rune(m.inputBuffer)
+				m.inputBuffer = string(runes[:m.cursorPos]) + "    " + string(runes[m.cursorPos:])
+				m.cursorPos += 4
+			}
+
+		case "backspace":
+			if m.cursorPos > 0 {
+				runes := []rune(m.inputBuffer)
+				m.inputBuffer = string(runes[:m.cursorPos-1]) + string(runes[m.cursorPos:])
+				m.cursorPos--
+			}
+
+		case "left":
+			if m.cursorPos > 0 {
+				m.cursorPos--
+			}
+
+		case "right":
+			if m.cursorPos < len([]rune(m.inputBuffer)) {
+				m.cursorPos++
+			}
+
+		default:
+			s := msg.String()
+			if len(s) == 1 || strings.HasPrefix(s, " ") {
+				runes := []rune(m.inputBuffer)
+				m.inputBuffer = string(runes[:m.cursorPos]) + s + string(runes[m.cursorPos:])
+				m.cursorPos += len([]rune(s))
 			}
 		}
 	}
 
-	m.messageInput, cmd = m.messageInput.Update(msg)
-
-	lines := strings.Count(m.messageInput.Value(), "\n") + 1
-	m.messageInput.SetHeight(clamp(lines, 1, 5))
-
-	return m, cmd
+	return m, nil
 }
 
 func titledBox(title string, width, height int) string {
@@ -117,7 +147,7 @@ func horizontalLine(width int) string {
 	return strings.Repeat("─", width)
 }
 
-func chatBox(width, height, topLine int, text, input string) string {
+func chatBox(width, height, topLine int, text, input string, cursorPos int, cursorBlink bool) string {
 	width = clamp(width, 2, width)
 	height = clamp(height, 4, height)
 
@@ -148,10 +178,58 @@ func chatBox(width, height, topLine int, text, input string) string {
 		}
 		lines[topLine-1] = string(textRow)
 	}
+	creamPrefix := borderStyle.Render("")
 
-	inputLines := strings.Split(input, "\n")
-	inputHeight := len(inputLines)
+	var formattedInputLines []string
+	runes := []rune(input)
 
+	currentLine := "┃ "
+	currentLineWidth := 2
+
+	for i, r := range runes {
+		charStr := string(r)
+		if r == '\n' {
+			charStr = " "
+		}
+
+		renderedChar := charStr
+		if i == cursorPos && cursorBlink {
+			renderedChar = cursorStyle.Render(charStr) + creamPrefix
+		}
+
+		if currentLineWidth+lipgloss.Width(charStr) > innerWidth {
+			formattedInputLines = append(formattedInputLines, currentLine)
+			currentLine = "┃ " + renderedChar
+			currentLineWidth = 2 + lipgloss.Width(charStr)
+		} else {
+			currentLine += renderedChar
+			currentLineWidth += lipgloss.Width(charStr)
+		}
+
+		if r == '\n' {
+			formattedInputLines = append(formattedInputLines, currentLine)
+			currentLine = "┃ "
+			currentLineWidth = 2
+		}
+	}
+
+	if cursorPos >= len(runes) {
+		cursorChar := " "
+		if cursorBlink {
+			cursorChar = cursorStyle.Render(" ") + creamPrefix
+		}
+
+		if currentLineWidth+1 > innerWidth {
+			formattedInputLines = append(formattedInputLines, currentLine)
+			currentLine = "┃ " + cursorChar
+		} else {
+			currentLine += cursorChar
+		}
+	}
+
+	formattedInputLines = append(formattedInputLines, currentLine)
+
+	inputHeight := len(formattedInputLines)
 	dividerLine := height - inputHeight - 2
 	if dividerLine <= topLine {
 		dividerLine = topLine + 1
@@ -160,19 +238,15 @@ func chatBox(width, height, topLine int, text, input string) string {
 	lines[dividerLine] = horizontal
 	inputStartLine := dividerLine + 1
 
-	for i, inputLine := range inputLines {
+	for i, inputLine := range formattedInputLines {
 		row := inputStartLine + i
 		if row >= height-1 {
 			break
 		}
 
-		if lipgloss.Width(inputLine) > innerWidth {
-			inputLine = inputLine[:innerWidth]
-		}
-
-		padding := clamp(innerWidth-lipgloss.Width(inputLine), 0, innerWidth)
-
-		lines[row] = "│" + inputLine + strings.Repeat(" ", padding) + "│"
+		visibleWidth := lipgloss.Width(inputLine)
+		padding := clamp(innerWidth-visibleWidth, 0, innerWidth)
+		lines[row] = inputLine + strings.Repeat(" ", padding) + "│"
 	}
 
 	return strings.Join(lines, "\n")
@@ -206,7 +280,7 @@ func (m ChatScreen) View() string {
 	channels := titledBox("Channels", channelsWidth, panelHeight)
 
 	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
-	chat := chatBox(chatWidth, panelHeight, 1, "channel name", m.messageInput.Value())
+	chat := chatBox(chatWidth, panelHeight, 1, "channel name", m.inputBuffer, m.cursorPos, m.cursorBlink)
 
 	leftPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels)
 	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, leftPanels, chat)
@@ -230,7 +304,8 @@ func (m ChatScreen) View() string {
 	panelLines := strings.Split(fullPanels, "\n")
 
 	for _, line := range panelLines {
-		padding := clamp(m.width-lipgloss.Width(line)-2, 0, m.width)
+		visibleLineWidth := lipgloss.Width(line)
+		padding := clamp(m.width-visibleLineWidth-2, 0, m.width)
 		content = append(content, "│"+line+strings.Repeat(" ", padding)+"│")
 	}
 
@@ -254,8 +329,9 @@ func (m ChatScreen) View() string {
 }
 
 func SendMessage(m *ChatScreen) {
-	if m.messageInput.Value() != "" {
-		m.messageInput.Reset()
+	if m.inputBuffer != "" {
+		m.inputBuffer = ""
+		m.cursorPos = 0
 	}
 }
 
