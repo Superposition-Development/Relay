@@ -1,10 +1,11 @@
 package screens
 
 import (
+	"Relay/app"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
-
-	"Relay/app"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -57,6 +58,7 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		m.height = msg.Height
 
 	case tea.KeyMsg:
+		GetServers()
 		m.cursorBlink = true
 
 		switch msg.String() {
@@ -335,6 +337,33 @@ func SendMessage(m *ChatScreen) {
 	}
 }
 
+type Server struct {
+	ID   any    `json:"id"`
+	PFP  string `json:"pfp"`
+	Name string `json:"name"`
+}
+
+func GetServers() {
+	JWTCookie, err := app.LoadToken()
+	if err != nil {
+		fmt.Print(err)
+	}
+	res := app.GET(JWTCookie, "http://"+app.GetCurrentServerAddress()+app.GetServerEndpoint)
+	if res.Error != nil {
+		fmt.Println("Error:", res.Error)
+		return
+	}
+
+	var servers []Server
+	if err := json.Unmarshal(res.Data, &servers); err != nil {
+		fmt.Println("Error decoding servers:", err)
+		return
+	}
+
+	for _, s := range servers {
+		fmt.Printf("ID: %s | Name: %s | PFP: %s\n", s.ID, s.Name, s.PFP)
+	}
+}
 func clamp(val, minVal, maxVal int) int {
 	if val < minVal {
 		return minVal

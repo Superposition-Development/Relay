@@ -3,6 +3,8 @@ package app
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/gorilla/websocket"
 )
 
 type InteractionMode int
@@ -23,6 +25,7 @@ var stateName = map[InteractionMode]string{
 
 var currentServerAddress = ""
 var CurrentInteractionMode = Default
+var socket *websocket.Conn
 
 func SetCurrentServerAddress(address string) {
 	currentServerAddress = address
