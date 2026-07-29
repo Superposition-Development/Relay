@@ -246,7 +246,7 @@ func chatBox(width, height, topLine int, text, input string, cursorPos int, curs
 
 		visibleWidth := lipgloss.Width(inputLine)
 		padding := clamp(innerWidth-visibleWidth, 0, innerWidth)
-		lines[row] = inputLine + strings.Repeat(" ", padding) + "│"
+		lines[row] = inputLine + strings.Repeat(" ", padding) + " │"
 	}
 
 	return strings.Join(lines, "\n")
