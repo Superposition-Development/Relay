@@ -26,20 +26,34 @@ func tickCmd() tea.Cmd {
 }
 
 type ChatScreen struct {
-	width       int
-	height      int
-	inputBuffer string
-	cursorPos   int
-	cursorBlink bool
+	width        int
+	height       int
+	inputBuffer  string
+	cursorPos    int
+	cursorBlink  bool
+	servers      []Server
+	focusedPanel int
 }
+
+/*
+focused panel
+
+0: self profile
+1: servers / dms
+2: channels / contacts
+3: messages sent
+4: typing
+*/
 
 func CreateChatScreen(h, w int) ChatScreen {
 	return ChatScreen{
-		height:      h,
-		width:       w - 1,
-		inputBuffer: "",
-		cursorPos:   0,
-		cursorBlink: true,
+		height:       h,
+		width:        w - 1,
+		inputBuffer:  "",
+		cursorPos:    0,
+		cursorBlink:  true,
+		servers:      GetServers(),
+		focusedPanel: 0,
 	}
 }
 
@@ -58,7 +72,6 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		m.height = msg.Height
 
 	case tea.KeyMsg:
-		GetServers()
 		m.cursorBlink = true
 
 		switch msg.String() {
@@ -254,6 +267,41 @@ func chatBox(width, height, topLine int, text, input string, cursorPos int, curs
 	return strings.Join(lines, "\n")
 }
 
+func serversBox(servers []Server, width, height int) string {
+	minWidth := len("Servers") + 5
+	width = clamp(width, minWidth, width)
+	height = clamp(height, 2, height)
+
+	top := "┌─ Servers " + strings.Repeat("─", width-len("Servers")-5) + "┐"
+	bottom := "└" + strings.Repeat("─", width-2) + "┘"
+
+	lines := []string{top}
+
+	innerWidth := width - 2
+
+	for i := 0; i < height-2; i++ {
+		var content string
+
+		if i < len(servers) {
+			content = servers[i].Name
+		}
+
+		contentRunes := []rune(content)
+		if len(contentRunes) > innerWidth-1 {
+			contentRunes = contentRunes[:innerWidth-1]
+		}
+
+		content = string(contentRunes)
+
+		line := "│" + content + strings.Repeat(" ", innerWidth-lipgloss.Width(content)) + "│"
+		lines = append(lines, line)
+	}
+
+	lines = append(lines, bottom)
+
+	return strings.Join(lines, "\n")
+}
+
 func (m ChatScreen) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
@@ -270,7 +318,7 @@ func (m ChatScreen) View() string {
 	top := "┌─ " + title + " " + horizontalLine(headerLineWidth) + "┐"
 
 	string1 := app.GetCurrentServerAddress()
-	string2 := "string 2"
+	string2 := app.CurrentUserID
 
 	spacing := clamp(m.width-len(string1)-len(string2)-2, 1, m.width)
 	middle := "│" + string1 + strings.Repeat(" ", spacing) + string2 + "│"
@@ -278,7 +326,7 @@ func (m ChatScreen) View() string {
 	leftDividerX := serversWidth + channelsWidth
 	rightDividerX := m.width - rightPadding - 3
 
-	servers := titledBox("Servers", serversWidth, panelHeight)
+	servers := serversBox(m.servers, serversWidth, panelHeight)
 	channels := titledBox("Channels", channelsWidth, panelHeight)
 
 	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
@@ -343,7 +391,7 @@ type Server struct {
 	Name string `json:"name"`
 }
 
-func GetServers() {
+func GetServers() []Server {
 	JWTCookie, err := app.LoadToken()
 	if err != nil {
 		fmt.Print(err)
@@ -351,18 +399,20 @@ func GetServers() {
 	res := app.GET(JWTCookie, "http://"+app.GetCurrentServerAddress()+app.GetServerEndpoint)
 	if res.Error != nil {
 		fmt.Println("Error:", res.Error)
-		return
+		return nil
 	}
 
 	var servers []Server
 	if err := json.Unmarshal(res.Data, &servers); err != nil {
 		fmt.Println("Error decoding servers:", err)
-		return
+		return nil
 	}
 
-	for _, s := range servers {
-		fmt.Printf("ID: %s | Name: %s | PFP: %s\n", s.ID, s.Name, s.PFP)
-	}
+	// for _, s := range servers {
+	// 	// fmt.Printf("ID: %s | Name: %s | PFP: %s\n", s.ID, s.Name, s.PFP)
+
+	// }
+	return servers
 }
 func clamp(val, minVal, maxVal int) int {
 	if val < minVal {

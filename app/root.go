@@ -25,6 +25,7 @@ var stateName = map[InteractionMode]string{
 
 var currentServerAddress = ""
 var CurrentInteractionMode = Default
+var CurrentUserID = ""
 var socket *websocket.Conn
 
 func SetCurrentServerAddress(address string) {

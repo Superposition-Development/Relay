@@ -110,6 +110,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				}
 				if data.RelayJWT != "" {
 					app.SaveToken(data.RelayJWT)
+					app.CurrentUserID = m.userID.Value()
 					app.SetCurrentServerAddress(m.serverAdress)
 					return m, func() tea.Msg {
 						return app.ChangeScreenMsg{
