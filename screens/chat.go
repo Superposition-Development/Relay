@@ -12,9 +12,11 @@ import (
 )
 
 var (
-	cream       = lipgloss.Color("#F5B978")
-	borderStyle = lipgloss.NewStyle().Foreground(cream)
-	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#1a1a1a")).Background(cream)
+	cream               = lipgloss.Color("#F5B978")
+	borderStyle         = lipgloss.NewStyle().Foreground(cream)
+	cursorStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#1a1a1a")).Background(cream)
+	selectedBorderStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#ffdea5"))
 )
 
 type tickMsg time.Time
@@ -26,24 +28,24 @@ func tickCmd() tea.Cmd {
 }
 
 type ChatScreen struct {
-	width        int
-	height       int
-	inputBuffer  string
-	cursorPos    int
-	cursorBlink  bool
-	servers      []Server
-	focusedPanel int
+	width               int
+	height              int
+	inputBuffer         string
+	cursorPos           int
+	cursorBlink         bool
+	servers             []Server
+	focusedPanel        int
+	inMenu              bool
+	selectedServerIndex int
 }
 
-/*
-focused panel
-
-0: self profile
-1: servers / dms
-2: channels / contacts
-3: messages sent
-4: typing
-*/
+const (
+	profileMenu = iota
+	serverMenu
+	channelMenu
+	messages
+	typingField
+)
 
 func CreateChatScreen(h, w int) ChatScreen {
 	return ChatScreen{
@@ -54,6 +56,7 @@ func CreateChatScreen(h, w int) ChatScreen {
 		cursorBlink:  true,
 		servers:      GetServers(),
 		focusedPanel: 0,
+		inMenu:       false,
 	}
 }
 
@@ -91,13 +94,30 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 		case "enter":
-			if app.CurrentInteractionMode == app.Write {
-				runes := []rune(m.inputBuffer)
-				m.inputBuffer = string(runes[:m.cursorPos]) + "\n" + string(runes[m.cursorPos:])
-				m.cursorPos++
-			} else {
-				SendMessage(&m)
-				return m, nil
+
+			if !m.inMenu {
+				switch m.focusedPanel {
+				case serverMenu, channelMenu:
+					m.inMenu = true
+				}
+				break
+			}
+
+			//this will probably cause a problem later on
+			if m.focusedPanel == serverMenu && len(m.servers) > 0 {
+
+				m.inMenu = false
+			}
+
+			if m.focusedPanel == typingField {
+				if app.CurrentInteractionMode == app.Write {
+					runes := []rune(m.inputBuffer)
+					m.inputBuffer = string(runes[:m.cursorPos]) + "\n" + string(runes[m.cursorPos:])
+					m.cursorPos++
+				} else {
+					SendMessage(&m)
+					return m, nil
+				}
 			}
 
 		case "tab":
@@ -105,6 +125,24 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				runes := []rune(m.inputBuffer)
 				m.inputBuffer = string(runes[:m.cursorPos]) + "    " + string(runes[m.cursorPos:])
 				m.cursorPos += 4
+				m.focusedPanel = typingField
+				break
+			}
+			if m.inMenu {
+				switch m.focusedPanel {
+				case profileMenu:
+				case serverMenu:
+
+				case channelMenu:
+				case messages:
+				case typingField:
+				}
+				break
+			}
+			m.focusedPanel++
+
+			if m.focusedPanel > typingField {
+				m.focusedPanel = profileMenu
 			}
 
 		case "backspace":
@@ -122,6 +160,28 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		case "right":
 			if m.cursorPos < len([]rune(m.inputBuffer)) {
 				m.cursorPos++
+			}
+		case "down":
+			if m.inMenu {
+				switch m.focusedPanel {
+				case serverMenu:
+					m.selectedServerIndex++
+					if m.selectedServerIndex >= len(m.servers) {
+						m.selectedServerIndex = 0
+					}
+					fmt.Println(m.selectedServerIndex)
+				}
+			}
+		case "up":
+			if m.inMenu {
+				switch m.focusedPanel {
+				case serverMenu:
+					m.selectedServerIndex--
+					if m.selectedServerIndex < 0 {
+						m.selectedServerIndex = len(m.servers) - 1
+					}
+					fmt.Println(m.selectedServerIndex)
+				}
 			}
 
 		default:
@@ -267,16 +327,20 @@ func chatBox(width, height, topLine int, text, input string, cursorPos int, curs
 	return strings.Join(lines, "\n")
 }
 
-func serversBox(servers []Server, width, height int) string {
+func serversBox(servers []Server, width, height int, isFocused bool, inMenu bool, selectedIndex int, blink bool) string {
 	minWidth := len("Servers") + 5
 	width = clamp(width, minWidth, width)
 	height = clamp(height, 2, height)
+
+	style := borderStyle
+	if isFocused {
+		style = selectedBorderStyle
+	}
 
 	top := "┌─ Servers " + strings.Repeat("─", width-len("Servers")-5) + "┐"
 	bottom := "└" + strings.Repeat("─", width-2) + "┘"
 
 	lines := []string{top}
-
 	innerWidth := width - 2
 
 	for i := 0; i < height-2; i++ {
@@ -290,16 +354,29 @@ func serversBox(servers []Server, width, height int) string {
 		if len(contentRunes) > innerWidth-1 {
 			contentRunes = contentRunes[:innerWidth-1]
 		}
-
 		content = string(contentRunes)
 
-		line := "│" + content + strings.Repeat(" ", innerWidth-lipgloss.Width(content)) + "│"
+		paddingLen := innerWidth - lipgloss.Width(content)
+		if paddingLen < 0 {
+			paddingLen = 0
+		}
+		paddedContent := content + strings.Repeat(" ", paddingLen)
+
+		if inMenu && isFocused && i == selectedIndex {
+			if blink {
+				paddedContent = cursorStyle.Render(paddedContent)
+			} else {
+				paddedContent = lipgloss.NewStyle().Foreground(cream).Render(paddedContent)
+			}
+		}
+
+		line := "│" + paddedContent + "│"
 		lines = append(lines, line)
 	}
 
 	lines = append(lines, bottom)
 
-	return strings.Join(lines, "\n")
+	return style.Render(strings.Join(lines, "\n"))
 }
 
 func (m ChatScreen) View() string {
@@ -326,7 +403,7 @@ func (m ChatScreen) View() string {
 	leftDividerX := serversWidth + channelsWidth
 	rightDividerX := m.width - rightPadding - 3
 
-	servers := serversBox(m.servers, serversWidth, panelHeight)
+	servers := serversBox(m.servers, serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.cursorBlink)
 	channels := titledBox("Channels", channelsWidth, panelHeight)
 
 	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
@@ -408,10 +485,13 @@ func GetServers() []Server {
 		return nil
 	}
 
-	// for _, s := range servers {
-	// 	// fmt.Printf("ID: %s | Name: %s | PFP: %s\n", s.ID, s.Name, s.PFP)
+	app.ServerListToIDMap = make(map[int]any, len(servers))
 
-	// }
+	for i, s := range servers {
+		app.ServerListToIDMap[i] = s.ID
+		// fmt.Printf("ID: %s | Name: %s | PFP: %s\n", s.ID, s.Name, s.PFP)
+
+	}
 	return servers
 }
 func clamp(val, minVal, maxVal int) int {
