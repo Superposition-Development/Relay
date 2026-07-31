@@ -58,13 +58,11 @@ func GET(authKey string, address string) ResponseResult {
 		return ResponseResult{Data: nil, Error: err}
 	}
 
-	// Return raw bytes directly
 	return ResponseResult{Data: body, Error: nil}
 }
 
 // directly encodes the destination result
 func POST(payload any, authKey string, address string, response any) error {
-
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -82,6 +80,8 @@ func POST(payload any, authKey string, address string, response any) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+authKey)
 
+	req.Header.Set("Cookie", "RelayJWT="+authKey)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -89,7 +89,8 @@ func POST(payload any, authKey string, address string, response any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("network response failed: %s", resp.Status)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("network response failed [%s]: %s", resp.Status, string(body))
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(response)

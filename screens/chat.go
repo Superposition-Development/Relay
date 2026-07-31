@@ -37,6 +37,16 @@ type ChatScreen struct {
 	focusedPanel        int
 	inMenu              bool
 	selectedServerIndex int
+	activeServerIndex   int
+}
+
+type Channel struct {
+	ID   any    `json:"id"`
+	Name string `json:"name"`
+}
+
+type GetChannelsRequest struct {
+	ServerID any `json:"serverID"`
 }
 
 const (
@@ -61,6 +71,7 @@ func CreateChatScreen(h, w int) ChatScreen {
 }
 
 func (m ChatScreen) Init() tea.Cmd {
+	// GetChannels()
 	return tickCmd()
 }
 
@@ -105,7 +116,10 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 			//this will probably cause a problem later on
 			if m.focusedPanel == serverMenu && len(m.servers) > 0 {
-
+				m.activeServerIndex = m.selectedServerIndex
+				// app.CurrentServerID = app.ServerListToIDMap[m.activeServerIndex]
+				// fmt.Println(app.ServerListToIDMap[m.selectedServerIndex])
+				GetChannels(app.ServerListToIDMap[m.activeServerIndex])
 				m.inMenu = false
 			}
 
@@ -169,7 +183,7 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					if m.selectedServerIndex >= len(m.servers) {
 						m.selectedServerIndex = 0
 					}
-					fmt.Println(m.selectedServerIndex)
+					// fmt.Println(m.selectedServerIndex)
 				}
 			}
 		case "up":
@@ -180,7 +194,7 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					if m.selectedServerIndex < 0 {
 						m.selectedServerIndex = len(m.servers) - 1
 					}
-					fmt.Println(m.selectedServerIndex)
+					// fmt.Println(m.selectedServerIndex)
 				}
 			}
 
@@ -327,7 +341,15 @@ func chatBox(width, height, topLine int, text, input string, cursorPos int, curs
 	return strings.Join(lines, "\n")
 }
 
-func serversBox(servers []Server, width, height int, isFocused bool, inMenu bool, selectedIndex int, blink bool) string {
+func serversBox(
+	servers []Server,
+	width, height int,
+	isFocused bool,
+	inMenu bool,
+	selectedIndex int,
+	activeIndex int,
+	blink bool,
+) string {
 	minWidth := len("Servers") + 5
 	width = clamp(width, minWidth, width)
 	height = clamp(height, 2, height)
@@ -342,6 +364,13 @@ func serversBox(servers []Server, width, height int, isFocused bool, inMenu bool
 
 	lines := []string{top}
 	innerWidth := width - 2
+
+	activeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#1a1a1a")).
+		Background(lipgloss.Color("#ffdea5")).
+		Bold(true)
+
+	hoverStyle := cursorStyle
 
 	for i := 0; i < height-2; i++ {
 		var content string
@@ -364,10 +393,12 @@ func serversBox(servers []Server, width, height int, isFocused bool, inMenu bool
 
 		if inMenu && isFocused && i == selectedIndex {
 			if blink {
-				paddedContent = cursorStyle.Render(paddedContent)
+				paddedContent = hoverStyle.Render(paddedContent)
 			} else {
 				paddedContent = lipgloss.NewStyle().Foreground(cream).Render(paddedContent)
 			}
+		} else if i == activeIndex && len(servers) > 0 {
+			paddedContent = activeStyle.Render(paddedContent)
 		}
 
 		line := "│" + paddedContent + "│"
@@ -403,7 +434,7 @@ func (m ChatScreen) View() string {
 	leftDividerX := serversWidth + channelsWidth
 	rightDividerX := m.width - rightPadding - 3
 
-	servers := serversBox(m.servers, serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.cursorBlink)
+	servers := serversBox(m.servers, serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.activeServerIndex, m.cursorBlink)
 	channels := titledBox("Channels", channelsWidth, panelHeight)
 
 	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
@@ -489,11 +520,39 @@ func GetServers() []Server {
 
 	for i, s := range servers {
 		app.ServerListToIDMap[i] = s.ID
+		fmt.Println(s.ID)
 		// fmt.Printf("ID: %s | Name: %s | PFP: %s\n", s.ID, s.Name, s.PFP)
 
 	}
 	return servers
 }
+
+func GetChannels(serverID any) []Channel {
+	JWTCookie, err := app.LoadToken()
+	if err != nil || JWTCookie == "" {
+		return nil
+	}
+
+	serverIDStr := fmt.Sprintf("%v", serverID)
+
+	reqPayload := GetChannelsRequest{
+		ServerID: serverIDStr,
+	}
+
+	url := "http://" + app.GetCurrentServerAddress() + app.GetChannelEndpoint
+
+	var channels []Channel
+
+	err = app.POST(reqPayload, JWTCookie, url, &channels)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+
+	fmt.Println("Channels:", channels)
+	return channels
+}
+
 func clamp(val, minVal, maxVal int) int {
 	if val < minVal {
 		return minVal
