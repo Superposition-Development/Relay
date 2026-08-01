@@ -23,11 +23,23 @@ var stateName = map[InteractionMode]string{
 	Write:   "write",
 }
 
+type Server struct {
+	ID   any    `json:"id"`
+	PFP  string `json:"pfp"`
+	Name string `json:"name"`
+}
+
+type Channel struct {
+	ID   any    `json:"id"`
+	Name string `json:"name"`
+}
+
 var currentServerAddress = ""
 var CurrentInteractionMode = Default
 var CurrentUserID = ""
 var socket *websocket.Conn
-var ServerListToIDMap = make(map[int]any, 0)
+var ServerListToDataMap = make(map[int]Server, 0)
+var ChannelListToDataMap = make(map[int]Channel, 0)
 
 func SetCurrentServerAddress(address string) {
 	currentServerAddress = address

@@ -28,34 +28,23 @@ func tickCmd() tea.Cmd {
 }
 
 type ChatScreen struct {
-	width               int
-	height              int
-	inputBuffer         string
-	cursorPos           int
-	cursorBlink         bool
-	servers             []Server
-	channels            []Channel
-	selectedChannelIdx  int
-	activeChannelIdx    int
-	focusedPanel        int
-	inMenu              bool
-	selectedServerIndex int
-	activeServerIndex   int
-}
-
-type Channel struct {
-	ID   any    `json:"id"`
-	Name string `json:"name"`
+	width                int
+	height               int
+	inputBuffer          string
+	cursorPos            int
+	cursorBlink          bool
+	servers              []app.Server
+	channels             []app.Channel
+	selectedChannelIndex int
+	activeChannelIndex   int
+	focusedPanel         int
+	inMenu               bool
+	selectedServerIndex  int
+	activeServerIndex    int
 }
 
 type GetChannelsRequest struct {
 	ServerID any `json:"serverID"`
-}
-
-type Server struct {
-	ID   any    `json:"id"`
-	PFP  string `json:"pfp"`
-	Name string `json:"name"`
 }
 
 const (
@@ -95,6 +84,8 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		key := msg.String()
 
 		switch key {
+		case "esc":
+			m.inMenu = false
 		case "ctrl+c":
 			return m, tea.Quit
 
@@ -120,7 +111,13 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 			if m.focusedPanel == serverMenu && len(m.servers) > 0 {
 				m.activeServerIndex = m.selectedServerIndex
-				m.channels = GetChannels(app.ServerListToIDMap[m.activeServerIndex])
+				m.channels = GetChannels(app.ServerListToDataMap[m.activeServerIndex].ID)
+				m.focusedPanel = channelMenu
+			}
+
+			if m.focusedPanel == channelMenu && len(m.channels) > 0 {
+				m.activeChannelIndex = m.selectedChannelIndex
+				m.focusedPanel = typingField
 				m.inMenu = false
 			}
 
@@ -142,6 +139,11 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			if !m.inMenu {
 				m.focusedPanel = (m.focusedPanel + 1) % (typingField + 1)
 			}
+		// case "ctrl+tab":
+		// 	if !m.inMenu {
+		// 		numPanels := typingField + 1
+		// 		m.focusedPanel = (m.focusedPanel - 1 + numPanels) % numPanels
+		// 	}
 
 		case "backspace":
 			if m.cursorPos > 0 {
@@ -216,13 +218,13 @@ func (m ChatScreen) View() string {
 	rightDividerX := m.width - rightPadding - 3
 	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
 
-	servers := renderListBox("Servers", m.servers, func(s Server) string { return s.Name },
+	servers := renderListBox("Servers", m.servers, func(s app.Server) string { return s.Name },
 		serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.activeServerIndex, m.cursorBlink)
 
-	channels := renderListBox("Channels", m.channels, func(c Channel) string { return "# " + c.Name },
-		channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIdx, m.activeChannelIdx, m.cursorBlink)
+	channels := renderListBox("Channels", m.channels, func(c app.Channel) string { return "# " + c.Name },
+		channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
 
-	chat := chatBox(chatWidth, panelHeight, 1, "channel name", m.inputBuffer, m.cursorPos, m.cursorBlink)
+	chat := chatBox(chatWidth, panelHeight, 1, app.ChannelListToDataMap[m.activeChannelIndex].Name, m.inputBuffer, m.cursorPos, m.cursorBlink, m.focusedPanel == typingField)
 
 	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels, chat)
 
@@ -312,7 +314,7 @@ func renderListBox[T any](
 	return style.Render(strings.Join(lines, "\n"))
 }
 
-func chatBox(width, height, topLine int, text, input string, cursorPos int, cursorBlink bool) string {
+func chatBox(width, height, topLine int, text, input string, cursorPos int, cursorBlink bool, isFocused bool) string {
 	width = clamp(width, 2, width)
 	height = clamp(height, 4, height)
 	innerWidth := width - 2
@@ -374,7 +376,7 @@ func chatBox(width, height, topLine int, text, input string, cursorPos int, curs
 
 	if cursorPos >= len(runes) {
 		cursorChar := " "
-		if cursorBlink {
+		if cursorBlink && isFocused {
 			cursorChar = cursorStyle.Render(" ") + borderStyle.Render("")
 		}
 
@@ -410,7 +412,7 @@ func SendMessage(m *ChatScreen) {
 	}
 }
 
-func GetServers() []Server {
+func GetServers() []app.Server {
 	JWTCookie, err := app.LoadToken()
 	if err != nil {
 		fmt.Print(err)
@@ -421,20 +423,21 @@ func GetServers() []Server {
 		return nil
 	}
 
-	var servers []Server
+	var servers []app.Server
 	if err := json.Unmarshal(res.Data, &servers); err != nil {
 		fmt.Println("Error decoding servers:", err)
 		return nil
 	}
 
-	app.ServerListToIDMap = make(map[int]any, len(servers))
+	app.ServerListToDataMap = make(map[int]app.Server, len(servers))
 	for i, s := range servers {
-		app.ServerListToIDMap[i] = s.ID
+
+		app.ServerListToDataMap[i] = s
 	}
 	return servers
 }
 
-func GetChannels(serverID any) []Channel {
+func GetChannels(serverID any) []app.Channel {
 	JWTCookie, err := app.LoadToken()
 	if err != nil || JWTCookie == "" {
 		return nil
@@ -445,10 +448,16 @@ func GetChannels(serverID any) []Channel {
 	}
 	url := "http://" + app.GetCurrentServerAddress() + app.GetChannelEndpoint
 
-	var channels []Channel
+	var channels []app.Channel
 	if err := app.POST(reqPayload, JWTCookie, url, &channels); err != nil {
 		fmt.Println("Error:", err)
 		return nil
+	}
+
+	app.ChannelListToDataMap = make(map[int]app.Channel, len(channels))
+	for i, c := range channels {
+
+		app.ChannelListToDataMap[i] = c
 	}
 
 	return channels
