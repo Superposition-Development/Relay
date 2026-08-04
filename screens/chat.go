@@ -64,6 +64,15 @@ const (
 	typingField
 )
 
+func (m *ChatScreen) AppendMessage(msg app.Message) {
+	m.messages = append(m.messages, msg)
+}
+
+func (m *ChatScreen) PrependMessages(olderMsgs []app.Message) {
+	reversed := reverseMessages(olderMsgs)
+	m.messages = append(reversed, m.messages...)
+}
+
 func CreateChatScreen(h, w int) ChatScreen {
 	return ChatScreen{
 		height:       h,
@@ -129,9 +138,11 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				m.activeChannelIndex = m.selectedChannelIndex
 				m.focusedPanel = typingField
 				m.inMenu = false
-				m.messages = GetMessages(app.ServerListToDataMap[m.activeServerIndex].ID,
+				m.messages = reverseMessages(GetMessages(
+					app.ServerListToDataMap[m.activeServerIndex].ID,
 					app.ChannelListToDataMap[m.activeChannelIndex].ID,
-					"0", false, true)
+					"0", false, true,
+				))
 			}
 
 			if m.focusedPanel == typingField {
@@ -567,6 +578,13 @@ func GetMessages(serverID any, channelID any, messageID any, ascending any, more
 	// }
 
 	return messages
+}
+
+func reverseMessages(msgs []app.Message) []app.Message {
+	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
+		msgs[i], msgs[j] = msgs[j], msgs[i]
+	}
+	return msgs
 }
 
 func clamp(val, minVal, maxVal int) int {
