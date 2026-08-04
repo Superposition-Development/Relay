@@ -131,6 +131,7 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				m.activeServerIndex = m.selectedServerIndex
 				m.channels = GetChannels(app.ServerListToDataMap[m.activeServerIndex].ID)
 				m.focusedPanel = channelMenu
+				m.messages = nil
 				break
 			}
 
@@ -138,6 +139,7 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				m.activeChannelIndex = m.selectedChannelIndex
 				m.focusedPanel = typingField
 				m.inMenu = false
+				m.messages = nil
 				m.messages = reverseMessages(GetMessages(
 					app.ServerListToDataMap[m.activeServerIndex].ID,
 					app.ChannelListToDataMap[m.activeChannelIndex].ID,
