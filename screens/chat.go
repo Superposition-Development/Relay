@@ -35,6 +35,7 @@ type ChatScreen struct {
 	cursorBlink          bool
 	servers              []app.Server
 	channels             []app.Channel
+	messages             []app.Message
 	selectedChannelIndex int
 	activeChannelIndex   int
 	focusedPanel         int
@@ -45,6 +46,14 @@ type ChatScreen struct {
 
 type GetChannelsRequest struct {
 	ServerID any `json:"serverID"`
+}
+
+type GetMessagesRequest struct {
+	ServerID  any `json:"serverID"`
+	ChannelID any `json:"channelID"`
+	MessageID any `json:"messageID"`
+	Ascending any `json:"ascending"`
+	MoreThan  any `json:"moreThan"`
 }
 
 const (
@@ -113,12 +122,16 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				m.activeServerIndex = m.selectedServerIndex
 				m.channels = GetChannels(app.ServerListToDataMap[m.activeServerIndex].ID)
 				m.focusedPanel = channelMenu
+				break
 			}
 
 			if m.focusedPanel == channelMenu && len(m.channels) > 0 {
 				m.activeChannelIndex = m.selectedChannelIndex
 				m.focusedPanel = typingField
 				m.inMenu = false
+				m.messages = GetMessages(app.ServerListToDataMap[m.activeServerIndex].ID,
+					app.ChannelListToDataMap[m.activeChannelIndex].ID,
+					"0", false, true)
 			}
 
 			if m.focusedPanel == typingField {
@@ -224,8 +237,17 @@ func (m ChatScreen) View() string {
 	channels := renderListBox("Channels", m.channels, func(c app.Channel) string { return "# " + c.Name },
 		channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
 
-	chat := chatBox(chatWidth, panelHeight, 1, app.ChannelListToDataMap[m.activeChannelIndex].Name, m.inputBuffer, m.cursorPos, m.cursorBlink, m.focusedPanel == typingField)
-
+	chat := chatBox(
+		chatWidth,
+		panelHeight,
+		1,
+		app.ChannelListToDataMap[m.activeChannelIndex].Name,
+		m.messages,
+		m.inputBuffer,
+		m.cursorPos,
+		m.cursorBlink,
+		m.focusedPanel == typingField,
+	)
 	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels, chat)
 
 	sepRunes := []rune(strings.Repeat("─", m.width-2))
@@ -314,33 +336,17 @@ func renderListBox[T any](
 	return style.Render(strings.Join(lines, "\n"))
 }
 
-func chatBox(width, height, topLine int, text, input string, cursorPos int, cursorBlink bool, isFocused bool) string {
+func formatMessageTime(epochSecs int64) string {
+	return time.Unix(epochSecs, 0).Local().Format("3:04 PM (01/02/2006)")
+}
+
+func chatBox(width, height, topLine int, title string, messages []app.Message, input string, cursorPos int, cursorBlink bool, isFocused bool) string {
 	width = clamp(width, 2, width)
 	height = clamp(height, 4, height)
 	innerWidth := width - 2
 
 	empty := "│" + strings.Repeat(" ", innerWidth) + "│"
 	horizontal := "├" + strings.Repeat("─", innerWidth) + "┤"
-
-	lines := make([]string, height)
-	for i := range lines {
-		lines[i] = empty
-	}
-
-	if topLine >= 0 && topLine < height {
-		lines[topLine] = horizontal
-	}
-
-	if topLine > 0 && text != "" {
-		textRow := []rune(empty)
-		for i, r := range []rune(text) {
-			if i+1 >= innerWidth+1 {
-				break
-			}
-			textRow[i+1] = r
-		}
-		lines[topLine-1] = string(textRow)
-	}
 
 	var formattedInputLines []string
 	runes := []rune(input)
@@ -389,10 +395,73 @@ func chatBox(width, height, topLine int, text, input string, cursorPos int, curs
 	}
 	formattedInputLines = append(formattedInputLines, currentLine)
 
-	dividerLine := clamp(height-len(formattedInputLines)-2, topLine+1, height)
-	lines[dividerLine] = horizontal
-	inputStartLine := dividerLine + 1
+	dividerLine := clamp(height-len(formattedInputLines)-2, topLine+1, height-1)
+	messageAreaHeight := dividerLine - (topLine + 1)
 
+	var messageLines []string
+	senderStyle := lipgloss.NewStyle().Foreground(cream).Bold(true)
+	timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
+
+	for _, msg := range messages {
+		timeStr := formatMessageTime(msg.Timestamp)
+
+		messageLines = append(messageLines, senderStyle.Render(msg.Username)+" "+timeStyle.Render(timeStr)+":")
+
+		words := strings.Fields(msg.Content)
+		line := "  "
+		for _, word := range words {
+			if lipgloss.Width(line)+lipgloss.Width(word)+1 > innerWidth {
+				messageLines = append(messageLines, line)
+				line = "  " + word
+			} else {
+				if line == "  " {
+					line += word
+				} else {
+					line += " " + word
+				}
+			}
+		}
+		if strings.TrimSpace(line) != "" {
+			messageLines = append(messageLines, line)
+		}
+	}
+
+	if len(messageLines) > messageAreaHeight {
+		messageLines = messageLines[len(messageLines)-messageAreaHeight:]
+	}
+
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = empty
+	}
+
+	if topLine > 0 && title != "" {
+		textRow := []rune(empty)
+		for i, r := range []rune(title) {
+			if i+1 >= innerWidth+1 {
+				break
+			}
+			textRow[i+1] = r
+		}
+		lines[topLine-1] = string(textRow)
+	}
+
+	if topLine >= 0 && topLine < height {
+		lines[topLine] = horizontal
+	}
+
+	for i, msgLine := range messageLines {
+		row := (topLine + 1) + i
+		if row >= dividerLine {
+			break
+		}
+		pad := clamp(innerWidth-lipgloss.Width(msgLine), 0, innerWidth)
+		lines[row] = "│" + msgLine + strings.Repeat(" ", pad) + "│"
+	}
+
+	lines[dividerLine] = horizontal
+
+	inputStartLine := dividerLine + 1
 	for i, inputLine := range formattedInputLines {
 		row := inputStartLine + i
 		if row >= height-1 {
@@ -407,6 +476,12 @@ func chatBox(width, height, topLine int, text, input string, cursorPos int, curs
 
 func SendMessage(m *ChatScreen) {
 	if m.inputBuffer != "" {
+		// newMessage := app.Message{
+		// 	Sender:  app.CurrentUserID,
+		// 	Content: m.inputBuffer,
+		// 	Time:    time.Now().Format("15:04"),
+		// }
+		// m.messages = append(m.messages, newMessage)
 		m.inputBuffer = ""
 		m.cursorPos = 0
 	}
@@ -461,6 +536,37 @@ func GetChannels(serverID any) []app.Channel {
 	}
 
 	return channels
+}
+
+func GetMessages(serverID any, channelID any, messageID any, ascending any, moreThan any) []app.Message {
+
+	JWTCookie, err := app.LoadToken()
+	if err != nil || JWTCookie == "" {
+		return nil
+	}
+
+	reqPayload := GetMessagesRequest{
+		ServerID:  fmt.Sprintf("%v", serverID),
+		ChannelID: fmt.Sprintf("%v", channelID),
+		MessageID: fmt.Sprintf("%v", messageID),
+		Ascending: fmt.Sprintf("%v", ascending),
+		MoreThan:  fmt.Sprintf("%v", moreThan),
+	}
+	url := "http://" + app.GetCurrentServerAddress() + app.GetMessagesEndpoint
+
+	var messages []app.Message
+	if err := app.POST(reqPayload, JWTCookie, url, &messages); err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+
+	// app.ChannelListToDataMap = make(map[int]app.Channel, len(channels))
+	// for i, c := range channels {
+
+	// 	app.ChannelListToDataMap[i] = c
+	// }
+
+	return messages
 }
 
 func clamp(val, minVal, maxVal int) int {
