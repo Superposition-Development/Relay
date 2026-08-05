@@ -120,6 +120,15 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 		case "enter":
+			if m.focusedPanel == typingField {
+				if app.CurrentInteractionMode == app.Write {
+					m.insertRune('\n')
+				} else {
+					SendMessage(&m)
+					return m, nil
+				}
+			}
+
 			if !m.inMenu {
 				if m.focusedPanel == serverMenu || m.focusedPanel == channelMenu {
 					m.inMenu = true
@@ -145,15 +154,6 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					app.ChannelListToDataMap[m.activeChannelIndex].ID,
 					"0", false, true,
 				))
-			}
-
-			if m.focusedPanel == typingField {
-				if app.CurrentInteractionMode == app.Write {
-					m.insertRune('\n')
-				} else {
-					SendMessage(&m)
-					return m, nil
-				}
 			}
 
 		case "tab":
@@ -488,13 +488,20 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 }
 
 func SendMessage(m *ChatScreen) {
+	token, err := app.LoadToken()
+	if err != nil {
+
+	}
 	if m.inputBuffer != "" {
-		// newMessage := app.Message{
-		// 	Sender:  app.CurrentUserID,
-		// 	Content: m.inputBuffer,
-		// 	Time:    time.Now().Format("15:04"),
-		// }
-		// m.messages = append(m.messages, newMessage)
+		payload := map[string]any{
+			"serverID":  app.ServerListToDataMap[m.activeServerIndex].ID,
+			"channelID": fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
+			"content":   m.inputBuffer,
+			"authKey":   token,
+			"message":   "sendMessage",
+		}
+
+		app.SendWebsocketJSON(payload)
 		m.inputBuffer = ""
 		m.cursorPos = 0
 	}

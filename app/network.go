@@ -101,37 +101,48 @@ func POST(payload any, authKey string, address string, response any) error {
 	return nil
 }
 
-func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg WSMessage)) {
-	var err error
+func GetConn() *websocket.Conn {
+	mu.Lock()
+	defer mu.Unlock()
+	return Socket
+}
 
-	socket, _, err = websocket.DefaultDialer.Dial(address, nil)
+func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg map[string]any)) {
+	mu.Lock()
+	var err error
+	Socket, _, err = websocket.DefaultDialer.Dial(address, nil)
+	mu.Unlock()
+
 	if err != nil {
 		fmt.Printf("WebSocket error: %v\n", err)
 		return
 	}
 
-	registerMessage := WSMessage{
-		Message: "register",
-		AuthKey: jwtToken,
+	registerMessage := map[string]any{
+		"message": "register",
+		"authKey": jwtToken,
 	}
 	SendWebsocketJSON(registerMessage)
 
 	go func() {
 		defer func() {
-			socket.Close()
+			mu.Lock()
+			if Socket != nil {
+				Socket.Close()
+				Socket = nil
+			}
+			mu.Unlock()
 			fmt.Println("Connection closed")
 		}()
 
 		for {
-			_, messageData, err := socket.ReadMessage()
+			_, messageData, err := GetConn().ReadMessage()
 			if err != nil {
 				fmt.Printf("WebSocket error or closed: %v\n", err)
 				break
 			}
 
-			fmt.Printf("Message from server: %s\n", string(messageData))
-
-			var parsed WSMessage
+			var parsed map[string]any
 			if err := json.Unmarshal(messageData, &parsed); err != nil {
 				fmt.Printf("Failed to parse incoming JSON: %v\n", err)
 				continue
@@ -144,16 +155,16 @@ func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg 
 	}()
 }
 
-func SendWebsocketJSON(message WSMessage) {
+func SendWebsocketJSON(message any) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if socket == nil {
+	if Socket == nil {
 		fmt.Println("Websocket offline")
 		return
 	}
 
-	err := socket.WriteJSON(message)
+	err := Socket.WriteJSON(message)
 	if err != nil {
 		fmt.Printf("Failed to send message: %v\n", err)
 	}

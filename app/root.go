@@ -45,7 +45,7 @@ type Message struct {
 var currentServerAddress = ""
 var CurrentInteractionMode = Default
 var CurrentUserID = ""
-var socket *websocket.Conn
+var Socket *websocket.Conn
 var ServerListToDataMap = make(map[int]Server, 0)
 var ChannelListToDataMap = make(map[int]Channel, 0)
 
