@@ -19,9 +19,10 @@ type SignupScreen struct {
 	width      int
 	height     int
 	loginError string
+	useHTTP    bool
 }
 
-func NewSignupScreen(h, w int, serverAdress string) SignupScreen {
+func NewSignupScreen(h, w int, serverAdress string, isHttp bool) SignupScreen {
 	username := textinput.New()
 	username.Placeholder = ""
 	username.CharLimit = 32
@@ -51,8 +52,9 @@ func NewSignupScreen(h, w int, serverAdress string) SignupScreen {
 
 		focused: 0,
 
-		width:  w,
-		height: h,
+		width:   w,
+		height:  h,
+		useHTTP: isHttp,
 	}
 }
 
@@ -113,13 +115,24 @@ func (m SignupScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					"password": m.password.Value(),
 					"pfp":      "",
 				}
-				data, err := Signup("http://"+m.serverAdress, payload)
+				protocol := "https://"
+				websocketProtocol := "wss://"
+
+				if m.useHTTP {
+					protocol = "http://"
+					websocketProtocol = "ws://"
+				}
+				data, err := Signup(protocol+m.serverAdress, payload)
 				if err != nil {
 					m.loginError = err.Error()
 				}
 				if data.RelayJWT != "" {
 					app.SaveToken(data.RelayJWT)
+					app.CurrentUserID = m.userID.Value()
 					app.SetCurrentServerAddress(m.serverAdress)
+					app.RegisterWebsocket(websocketProtocol+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {
+						app.WSChan <- msg
+					})
 					return m, func() tea.Msg {
 						return app.ChangeScreenMsg{
 							Screen: CreateChatScreen(m.height, m.width),
@@ -141,7 +154,7 @@ func (m SignupScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			case 5:
 				return m, func() tea.Msg {
 					return app.ChangeScreenMsg{
-						Screen: NewLoginScreen(m.height, m.width, m.serverAdress),
+						Screen: NewLoginScreen(m.height, m.width, m.serverAdress, m.useHTTP),
 						Width:  m.width,
 						Height: m.height,
 					}
@@ -205,7 +218,14 @@ func (m SignupScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	title := "Create Account for http://" + m.serverAdress
+	protocol := "https://"
+
+	if m.useHTTP {
+		protocol = "http://"
+
+	}
+
+	title := "Create Account for " + protocol + m.serverAdress
 
 	titleBar := lipgloss.JoinHorizontal(
 		lipgloss.Top,

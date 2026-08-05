@@ -21,6 +21,7 @@ type StartScreen struct {
 	height       int
 	fadeIn       bool
 	fadeProgress float64
+	useHTTP      bool
 }
 
 func BrowseLocalFiles() error {
@@ -48,14 +49,14 @@ func NewStartScreen(h, w int, fadeIn bool) StartScreen {
 	connect.Width = 40
 	connect.Prompt = ""
 
-	connect.Focus()
+	// connect.Focus()
 
 	return StartScreen{
-		connect: connect,
-		focused: 0,
-		height:  h,
-		width:   w,
-
+		connect:      connect,
+		focused:      0,
+		height:       h,
+		width:        w,
+		useHTTP:      false,
 		fadeIn:       fadeIn,
 		fadeProgress: 0,
 	}
@@ -133,7 +134,7 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 			m.focused++
 
-			if m.focused > 3 {
+			if m.focused > 4 {
 				m.focused = 0
 			}
 
@@ -143,7 +144,7 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			m.focused--
 
 			if m.focused < 0 {
-				m.focused = 3
+				m.focused = 4
 			}
 
 			m.updateFocus()
@@ -153,20 +154,21 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			switch m.focused {
 
 			case 0:
+				m.useHTTP = !m.useHTTP
+			case 1:
 				return m, func() tea.Msg {
 					return app.ChangeScreenMsg{
-						Screen: NewLoginScreen(m.height, m.width, m.connect.Value()),
+						Screen: NewLoginScreen(m.height, m.width, m.connect.Value(), m.useHTTP),
 						Width:  m.width,
 						Height: m.height,
 					}
 				}
 
-			case 1:
-				// Password
-
 			case 2:
-				BrowseLocalFiles()
+
 			case 3:
+				BrowseLocalFiles()
+			case 4:
 				return m, tea.Quit
 			}
 		}
@@ -176,7 +178,7 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 	switch m.focused {
 
-	case 0:
+	case 1:
 
 		m.connect, cmd = m.connect.Update(msg)
 
@@ -188,12 +190,8 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 func (m *StartScreen) updateFocus() {
 	m.connect.Blur()
 
-	switch m.focused {
-
-	case 0:
-
+	if m.focused == 1 {
 		m.connect.Focus()
-
 	}
 }
 
@@ -256,13 +254,31 @@ func (m StartScreen) View() string {
 		m.connect.View(),
 	)
 
-	protocol := lipgloss.NewStyle().
-		Foreground(cream).
-		Render("\nhttp://")
+	scheme := "https://"
+	if m.useHTTP {
+		scheme = "http://"
+	}
+
+	protocolStyle := lipgloss.NewStyle().
+		Foreground(cream)
+
+	if m.focused == 0 {
+		protocolStyle = protocolStyle.
+			Background(selectedCream).
+			Foreground(black).
+			Bold(true)
+	}
+
+	protocol := protocolStyle.Render(scheme)
+
+	protocolContainer := lipgloss.NewStyle().
+		Height(1).
+		AlignVertical(lipgloss.Center).
+		Render("\n" + protocol)
 
 	inputWithProtocol := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		protocol,
+		protocolContainer,
 		userField,
 	)
 
@@ -301,7 +317,7 @@ func (m StartScreen) View() string {
 		button(
 			"Server History",
 			16,
-			m.focused == 1,
+			m.focused == 2,
 		),
 
 		" ",
@@ -309,7 +325,7 @@ func (m StartScreen) View() string {
 		button(
 			"Browse Local Files",
 			20,
-			m.focused == 2,
+			m.focused == 3,
 		),
 
 		" ",
@@ -317,7 +333,7 @@ func (m StartScreen) View() string {
 		button(
 			"Quit",
 			12,
-			m.focused == 3,
+			m.focused == 4,
 		),
 
 		" ",

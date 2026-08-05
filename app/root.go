@@ -42,6 +42,7 @@ type Message struct {
 	Pfp       string `json:"pfp"`
 }
 
+var IsServerSecure = false //is it using https:// and by extension wss://
 var currentServerAddress = ""
 var CurrentInteractionMode = Default
 var CurrentUserID = ""

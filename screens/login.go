@@ -14,10 +14,10 @@ type LoginScreen struct {
 	password     textinput.Model
 	serverAdress string
 	focused      int
-
-	width      int
-	height     int
-	loginError string
+	isHttp       bool
+	width        int
+	height       int
+	loginError   string
 }
 
 type LoginResponse struct {
@@ -27,7 +27,7 @@ type LoginResponse struct {
 //go:embed logo.txt
 var Logo string
 
-func NewLoginScreen(h, w int, serverAdress string) LoginScreen {
+func NewLoginScreen(h, w int, serverAdress string, isHttp bool) LoginScreen {
 	userID := textinput.New()
 	userID.Width = 40
 	userID.Prompt = ""
@@ -46,6 +46,7 @@ func NewLoginScreen(h, w int, serverAdress string) LoginScreen {
 		height:       h,
 		width:        w,
 		serverAdress: serverAdress,
+		isHttp:       isHttp,
 	}
 }
 
@@ -104,7 +105,16 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					"userID":   m.userID.Value(),
 					"password": m.password.Value(),
 				}
-				data, err := Login("http://"+m.serverAdress, payload)
+
+				protocol := "https://"
+				websocketProtocol := "wss://"
+
+				if m.isHttp {
+					protocol = "http://"
+					websocketProtocol = "ws://"
+				}
+
+				data, err := Login(protocol+m.serverAdress, payload)
 				if err != nil {
 					m.loginError = err.Error()
 				}
@@ -112,7 +122,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					app.SaveToken(data.RelayJWT)
 					app.CurrentUserID = m.userID.Value()
 					app.SetCurrentServerAddress(m.serverAdress)
-					app.RegisterWebsocket("ws://"+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {
+					app.RegisterWebsocket(websocketProtocol+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {
 						app.WSChan <- msg
 					})
 					return m, func() tea.Msg {
@@ -136,7 +146,7 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			case 4:
 				return m, func() tea.Msg {
 					return app.ChangeScreenMsg{
-						Screen: NewSignupScreen(m.height, m.width, m.serverAdress),
+						Screen: NewSignupScreen(m.height, m.width, m.serverAdress, m.isHttp),
 						Width:  m.width,
 						Height: m.height,
 					}
@@ -192,7 +202,14 @@ func (m LoginScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	title := "Login to http://" + m.serverAdress
+	protocol := "https://"
+
+	if m.isHttp {
+		protocol = "http://"
+
+	}
+
+	title := "Login to " + protocol + m.serverAdress
 
 	titleBar := lipgloss.JoinHorizontal(
 		lipgloss.Top,
