@@ -126,7 +126,7 @@ func (m StartScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 		switch msg.String() {
 
-		case "ctrl+c", "q":
+		case "ctrl+c":
 
 			return m, tea.Quit
 
