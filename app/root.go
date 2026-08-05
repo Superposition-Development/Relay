@@ -48,6 +48,9 @@ var CurrentUserID = ""
 var Socket *websocket.Conn
 var ServerListToDataMap = make(map[int]Server, 0)
 var ChannelListToDataMap = make(map[int]Channel, 0)
+var Servers = make([]Server, 0)
+var Channels = make([]Channel, 0)
+var Messages = make([]Message, 0)
 
 func SetCurrentServerAddress(address string) {
 	currentServerAddress = address
@@ -70,4 +73,20 @@ func GetLocalFilesPath() (string, error) {
 		return "", err
 	}
 	return appDir, nil
+}
+
+func ReverseMessages(msgs []Message) []Message {
+	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
+		msgs[i], msgs[j] = msgs[j], msgs[i]
+	}
+	return msgs
+}
+
+func AppendMessage(msg Message) {
+	Messages = append(Messages, msg)
+}
+
+func PrependMessages(olderMsgs []Message) {
+	reversed := ReverseMessages(olderMsgs)
+	Messages = append(reversed, Messages...)
 }

@@ -112,7 +112,9 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					app.SaveToken(data.RelayJWT)
 					app.CurrentUserID = m.userID.Value()
 					app.SetCurrentServerAddress(m.serverAdress)
-					app.RegisterWebsocket("ws://"+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {})
+					app.RegisterWebsocket("ws://"+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {
+						app.WSChan <- msg
+					})
 					return m, func() tea.Msg {
 						return app.ChangeScreenMsg{
 							Screen: CreateChatScreen(m.height, m.width),

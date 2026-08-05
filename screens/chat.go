@@ -33,9 +33,6 @@ type ChatScreen struct {
 	inputBuffer          string
 	cursorPos            int
 	cursorBlink          bool
-	servers              []app.Server
-	channels             []app.Channel
-	messages             []app.Message
 	selectedChannelIndex int
 	activeChannelIndex   int
 	focusedPanel         int
@@ -64,31 +61,32 @@ const (
 	typingField
 )
 
-func (m *ChatScreen) AppendMessage(msg app.Message) {
-	m.messages = append(m.messages, msg)
-}
-
-func (m *ChatScreen) PrependMessages(olderMsgs []app.Message) {
-	reversed := reverseMessages(olderMsgs)
-	m.messages = append(reversed, m.messages...)
-}
-
-func CreateChatScreen(h, w int) ChatScreen {
-	return ChatScreen{
+func CreateChatScreen(h, w int) *ChatScreen {
+	app.Servers = GetServers()
+	return &ChatScreen{
 		height:       h,
 		width:        w - 1,
 		cursorBlink:  true,
-		servers:      GetServers(),
 		focusedPanel: profileMenu,
 	}
 }
 
-func (m ChatScreen) Init() tea.Cmd {
-	return tickCmd()
+func (m *ChatScreen) Init() tea.Cmd {
+	return tea.Batch(app.ListenForWSMsg(), tickCmd())
 }
 
-func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
+func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
+	case app.WebsocketMsg:
+		activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
+		activeChannelID := fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID)
+
+		if msg.ServerID == activeServerID && msg.ChannelID == activeChannelID {
+			app.Messages = append(app.Messages, msg.Message)
+		}
+
+		return m, app.ListenForWSMsg()
+
 	case tickMsg:
 		m.cursorBlink = !m.cursorBlink
 		return m, tickCmd()
@@ -116,7 +114,7 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 		case "ctrl+s":
 			if app.CurrentInteractionMode == app.Write {
-				SendMessage(&m)
+				SendMessage(m)
 			}
 
 		case "enter":
@@ -124,7 +122,7 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				if app.CurrentInteractionMode == app.Write {
 					m.insertRune('\n')
 				} else {
-					SendMessage(&m)
+					SendMessage(m)
 					return m, nil
 				}
 			}
@@ -136,24 +134,28 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				break
 			}
 
-			if m.focusedPanel == serverMenu && len(m.servers) > 0 {
+			if m.focusedPanel == serverMenu && len(app.Servers) > 0 {
 				m.activeServerIndex = m.selectedServerIndex
-				m.channels = GetChannels(app.ServerListToDataMap[m.activeServerIndex].ID)
+				m.selectedChannelIndex = 0
+				app.Channels = GetChannels(app.ServerListToDataMap[m.activeServerIndex].ID)
 				m.focusedPanel = channelMenu
-				m.messages = nil
+				app.Messages = nil
 				break
 			}
 
-			if m.focusedPanel == channelMenu && len(m.channels) > 0 {
+			if m.focusedPanel == channelMenu && len(app.Channels) > 0 {
 				m.activeChannelIndex = m.selectedChannelIndex
 				m.focusedPanel = typingField
 				m.inMenu = false
-				m.messages = nil
-				m.messages = reverseMessages(GetMessages(
-					app.ServerListToDataMap[m.activeServerIndex].ID,
-					app.ChannelListToDataMap[m.activeChannelIndex].ID,
+				serverID := app.ServerListToDataMap[m.activeServerIndex].ID
+				channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
+
+				app.Messages = app.ReverseMessages(GetMessages(
+					serverID,
+					channelID,
 					"0", false, true,
 				))
+				break
 			}
 
 		case "tab":
@@ -189,15 +191,24 @@ func (m ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 		case "down":
-			if m.inMenu && m.focusedPanel == serverMenu && len(m.servers) > 0 {
-				m.selectedServerIndex = (m.selectedServerIndex + 1) % len(m.servers)
+			if m.inMenu && m.focusedPanel == serverMenu && len(app.Servers) > 0 {
+				m.selectedServerIndex = (m.selectedServerIndex + 1) % len(app.Servers)
+			}
+			if m.inMenu && m.focusedPanel == channelMenu && len(app.Channels) > 0 {
+				m.selectedChannelIndex = (m.selectedChannelIndex + 1) % len(app.Channels)
 			}
 
 		case "up":
-			if m.inMenu && m.focusedPanel == serverMenu && len(m.servers) > 0 {
+			if m.inMenu && m.focusedPanel == serverMenu && len(app.Servers) > 0 {
 				m.selectedServerIndex--
 				if m.selectedServerIndex < 0 {
-					m.selectedServerIndex = len(m.servers) - 1
+					m.selectedServerIndex = len(app.Servers) - 1
+				}
+			}
+			if m.inMenu && m.focusedPanel == channelMenu && len(app.Channels) > 0 {
+				m.selectedChannelIndex--
+				if m.selectedChannelIndex < 0 {
+					m.selectedChannelIndex = len(app.Channels) - 1
 				}
 			}
 
@@ -244,10 +255,10 @@ func (m ChatScreen) View() string {
 	rightDividerX := m.width - rightPadding - 3
 	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
 
-	servers := renderListBox("Servers", m.servers, func(s app.Server) string { return s.Name },
+	servers := renderListBox("Servers", app.Servers, func(s app.Server) string { return s.Name },
 		serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.activeServerIndex, m.cursorBlink)
 
-	channels := renderListBox("Channels", m.channels, func(c app.Channel) string { return "# " + c.Name },
+	channels := renderListBox("Channels", app.Channels, func(c app.Channel) string { return "# " + c.Name },
 		channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
 
 	chat := chatBox(
@@ -255,7 +266,7 @@ func (m ChatScreen) View() string {
 		panelHeight,
 		1,
 		app.ChannelListToDataMap[m.activeChannelIndex].Name,
-		m.messages,
+		app.Messages,
 		m.inputBuffer,
 		m.cursorPos,
 		m.cursorBlink,
@@ -587,13 +598,6 @@ func GetMessages(serverID any, channelID any, messageID any, ascending any, more
 	// }
 
 	return messages
-}
-
-func reverseMessages(msgs []app.Message) []app.Message {
-	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
-		msgs[i], msgs[j] = msgs[j], msgs[i]
-	}
-	return msgs
 }
 
 func clamp(val, minVal, maxVal int) int {
