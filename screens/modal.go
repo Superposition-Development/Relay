@@ -1,10 +1,12 @@
 package screens
 
 import (
+	"Relay/app"
 	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -14,6 +16,11 @@ var inputStyle = lipgloss.NewStyle().
 	Border(lipgloss.NormalBorder()).
 	BorderForeground(cream).
 	Foreground(cream)
+
+type Modal interface {
+	Update(msg tea.Msg) (Modal, tea.Cmd, any)
+	View() string
+}
 
 func (m ChatScreen) renderModalContent() string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Help & Keyboard Shortcuts")
@@ -32,21 +39,43 @@ func (m ChatScreen) renderModalContent() string {
 	return modalBoxStyle.Render(content)
 }
 
-func (m ChatScreen) renderJoinServerModal() string {
-	label := "\nServerID: "
-	serverIDLabel := textinput.New()
-	serverIDLabel.Prompt = ""
-	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Create Server")
-	idRow := lipgloss.JoinHorizontal(lipgloss.Top, label, inputStyle.Render(serverIDLabel.View()))
+type JoinServerModal struct {
+	input textinput.Model
+}
 
-	content := fmt.Sprintf(
-		"%s\n\n"+
-			idRow+
-			"%s",
+func NewJoinServerModal() *JoinServerModal {
+	ti := textinput.New()
+	ti.Prompt = ""
+	ti.Focus()
+	return &JoinServerModal{input: ti}
+}
+
+func (m *JoinServerModal) Update(msg tea.Msg) (Modal, tea.Cmd, any) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "esc":
+			return nil, nil, nil
+		case "enter":
+
+			JoinServer(m.input.Value())
+			return nil, nil, m.input.Value()
+		}
+	}
+
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd, nil
+}
+
+func (m *JoinServerModal) View() string {
+	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Join Server")
+	idRow := lipgloss.JoinHorizontal(lipgloss.Top, "\nServerID: ", inputStyle.Render(m.input.View()))
+
+	content := fmt.Sprintf("%s\n\n%s\n\n%s",
 		title,
-		"\n"+lipgloss.NewStyle().Foreground(lipgloss.Color("#767676")).Render("Press Esc or 'q' to close"),
+		idRow,
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#767676")).Render("Press Enter to join • Esc to close"),
 	)
-
 	return modalBoxStyle.Render(content)
 }
 
@@ -161,4 +190,31 @@ func skipANSI(s string, offset int) string {
 		}
 	}
 	return result.String()
+}
+
+func JoinServer(serverID string) {
+
+	var response any
+
+	payload := map[string]string{
+		"serverID": serverID,
+	}
+
+	protocol := "http://"
+	if app.IsServerSecure {
+		protocol = "https://"
+	}
+
+	token, err := app.LoadToken()
+	if err != nil {
+
+	}
+
+	err = app.POST(
+		payload,
+		token,
+		protocol+app.GetCurrentServerAddress()+app.JoinServerEndpoint,
+		&response,
+	)
+
 }

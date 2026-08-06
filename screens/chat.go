@@ -26,11 +26,6 @@ var (
 			Padding(1, 2)
 )
 
-const (
-	modalTypeInfo = iota
-	modalTypeHelp
-)
-
 type tickMsg time.Time
 
 func tickCmd() tea.Cmd {
@@ -51,8 +46,8 @@ type ChatScreen struct {
 	inMenu               bool
 	selectedServerIndex  int
 	activeServerIndex    int
-	showModal            bool
 	modalType            int
+	activeModal          Modal
 }
 
 type GetChannelsRequest struct {
@@ -75,6 +70,11 @@ const (
 	typingField
 )
 
+const (
+	joinServerModal = iota
+	createChannelModal
+)
+
 func CreateChatScreen(h, w int) *ChatScreen {
 	app.Servers = GetServers()
 	return &ChatScreen{
@@ -84,7 +84,7 @@ func CreateChatScreen(h, w int) *ChatScreen {
 		focusedPanel:       profileMenu,
 		activeChannelIndex: -1,
 		activeServerIndex:  -1,
-		showModal:          false,
+		activeModal:        nil,
 	}
 }
 
@@ -95,17 +95,44 @@ func (m *ChatScreen) Init() tea.Cmd {
 func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case app.WebsocketMsg:
-		if m.activeServerIndex < 0 || m.activeChannelIndex < 0 {
-			return m, nil
-		}
-		activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
-		activeChannelID := fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID)
+		switch msg.Type {
+		case "recieveMessage":
+			if m.activeServerIndex < 0 || m.activeChannelIndex < 0 {
+				return m, nil
+			}
 
-		if msg.ServerID == activeServerID && msg.ChannelID == activeChannelID {
-			app.Messages = append(app.Messages, msg.Message)
-		}
+			activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
+			activeChannelID := fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID)
 
-		return m, app.ListenForWSMsg()
+			serverID := fmt.Sprintf("%v", msg.Data["serverID"])
+			channelID := fmt.Sprintf("%v", msg.Data["channelID"])
+
+			var msgID int64
+			if idFloat, ok := msg.Data["id"].(float64); ok {
+				msgID = int64(idFloat)
+			}
+
+			var timestamp int64
+			if tsFloat, ok := msg.Data["timestamp"].(float64); ok {
+				timestamp = int64(tsFloat)
+			}
+
+			newMessage := app.Message{
+				ID:        msgID,
+				Username:  msg.Data["name"].(string),
+				Content:   msg.Data["content"].(string),
+				Timestamp: timestamp,
+			}
+
+			if serverID == activeServerID && channelID == activeChannelID {
+				app.Messages = append(app.Messages, newMessage)
+			}
+
+			return m, app.ListenForWSMsg()
+		case "newServer":
+			app.Servers = GetServers()
+			return m, app.ListenForWSMsg()
+		}
 
 	case tickMsg:
 		m.cursorBlink = !m.cursorBlink
@@ -119,20 +146,27 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		m.cursorBlink = true
 		key := msg.String()
 
-		if m.showModal {
+		if m.activeModal != nil {
 			switch key {
-			case "esc", "q", "ctrl+o":
-				m.showModal = false
+			case "esc":
+				m.activeModal = nil
 				return m, nil
+			}
+			// fmt.Println("help!!")
+			nextModal, _, result := m.activeModal.Update(msg)
+			m.activeModal = nextModal
+
+			if result != nil {
+				switch v := result.(type) {
+				case string:
+
+					_ = v
+				}
 			}
 			return m, nil
 		}
 
 		switch key {
-		case "ctrl+o":
-			m.showModal = true
-			m.modalType = modalTypeHelp
-			return m, nil
 
 		case "esc":
 			m.inMenu = false
@@ -181,9 +215,13 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 							}
 						}
 					case 1:
-						m.showModal = true
+						m.activeModal = NewJoinServerModal()
+						m.modalType = joinServerModal
+
 						return m, nil
 					case 2:
+
+						return m, nil
 					}
 				}
 
@@ -259,7 +297,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 		default:
-			if len(key) == 1 || strings.HasPrefix(key, " ") {
+			if (len(key) == 1 || strings.HasPrefix(key, " ")) && m.activeModal == nil {
 				m.insertString(key)
 			}
 		}
@@ -355,8 +393,9 @@ func (m ChatScreen) View() string {
 	formattedContent = append(formattedContent, bottom)
 	baseView := strings.Join(formattedContent, "\n")
 
-	if m.showModal {
-		return overlayModal(baseView, m.renderJoinServerModal(), m.width, m.height)
+	if m.activeModal != nil {
+
+		return overlayModal(baseView, m.activeModal.View(), m.width, m.height)
 	}
 
 	return baseView

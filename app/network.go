@@ -174,58 +174,17 @@ func SendWebsocketJSON(message any) {
 var WSChan = make(chan map[string]any, 100)
 
 type WebsocketMsg struct {
-	ServerID  string
-	ChannelID string
-	Message   Message
+	Type string `json:"type"`
+
+	Data map[string]any `json:"data"`
 }
 
 func ListenForWSMsg() tea.Cmd {
 	return func() tea.Msg {
 		msg := <-WSChan
-		return HandleWebsocketMessage(msg)
-	}
-}
-
-func HandleWebsocketMessage(msg map[string]any) tea.Msg {
-	msgType, _ := msg["type"].(string)
-	if msgType != "recieveMessage" && msgType != "receiveMessage" {
-		return nil
-	}
-
-	dataMap, ok := msg["data"].(map[string]any)
-	if !ok {
-		return nil
-	}
-
-	name, _ := dataMap["name"].(string)
-	if name == "" {
-		name, _ = dataMap["name"].(string)
-	}
-
-	content, _ := dataMap["content"].(string)
-	serverID := fmt.Sprintf("%v", dataMap["serverID"])
-	channelID := fmt.Sprintf("%v", dataMap["channelID"])
-
-	var msgID int64
-	if idFloat, ok := dataMap["id"].(float64); ok {
-		msgID = int64(idFloat)
-	}
-
-	var timestamp int64
-	if tsFloat, ok := dataMap["timestamp"].(float64); ok {
-		timestamp = int64(tsFloat)
-	}
-
-	newMessage := Message{
-		ID:        msgID,
-		Username:  name,
-		Content:   content,
-		Timestamp: timestamp,
-	}
-
-	return WebsocketMsg{
-		ServerID:  serverID,
-		ChannelID: channelID,
-		Message:   newMessage,
+		return WebsocketMsg{
+			Type: msg["type"].(string),
+			Data: msg["data"].(map[string]any),
+		}
 	}
 }
