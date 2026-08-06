@@ -79,21 +79,43 @@ func (m *JoinServerModal) View() string {
 	return modalBoxStyle.Render(content)
 }
 
-func (m ChatScreen) renderCreateChannelModal() string {
-	label := "\nChannel Name: "
-	serverIDLabel := textinput.New()
-	serverIDLabel.Prompt = ""
+type CreateChannelModal struct {
+	input textinput.Model
+}
+
+func NewCreateChannelModal() *CreateChannelModal {
+	ti := textinput.New()
+	ti.Prompt = ""
+	ti.Focus()
+	return &CreateChannelModal{input: ti}
+}
+
+func (m *CreateChannelModal) Update(msg tea.Msg) (Modal, tea.Cmd, any) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "esc":
+			return nil, nil, nil
+		case "enter":
+
+			CreateChannel(fmt.Sprintf("%v", app.CurrentServerID), m.input.Value())
+			return nil, nil, m.input.Value()
+		}
+	}
+
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd, nil
+}
+
+func (m *CreateChannelModal) View() string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Create Channel")
-	idRow := lipgloss.JoinHorizontal(lipgloss.Top, label, inputStyle.Render(serverIDLabel.View()))
+	idRow := lipgloss.JoinHorizontal(lipgloss.Top, "\nName: ", inputStyle.Render(m.input.View()))
 
-	content := fmt.Sprintf(
-		"%s\n\n"+
-			idRow+
-			"%s",
+	content := fmt.Sprintf("%s\n\n%s\n\n%s",
 		title,
-		"\n"+lipgloss.NewStyle().Foreground(lipgloss.Color("#767676")).Render("Press Esc or 'q' to close"),
+		idRow,
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#767676")).Render("Press Enter to join • Esc to close"),
 	)
-
 	return modalBoxStyle.Render(content)
 }
 
@@ -214,6 +236,34 @@ func JoinServer(serverID string) {
 		payload,
 		token,
 		protocol+app.GetCurrentServerAddress()+app.JoinServerEndpoint,
+		&response,
+	)
+
+}
+
+func CreateChannel(serverID string, channelName string) {
+
+	var response any
+
+	payload := map[string]string{
+		"serverID": serverID,
+		"name":     channelName,
+	}
+
+	protocol := "http://"
+	if app.IsServerSecure {
+		protocol = "https://"
+	}
+
+	token, err := app.LoadToken()
+	if err != nil {
+
+	}
+
+	err = app.POST(
+		payload,
+		token,
+		protocol+app.GetCurrentServerAddress()+app.CreateChannelEndpoint,
 		&response,
 	)
 

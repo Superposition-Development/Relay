@@ -132,6 +132,10 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		case "newServer":
 			app.Servers = GetServers()
 			return m, app.ListenForWSMsg()
+		case "newChannel":
+			//eventually this needs to be changed to be the serverID associated with new channel
+			app.Channels = GetChannels(app.CurrentServerID)
+			return m, app.ListenForWSMsg()
 		}
 
 	case tickMsg:
@@ -226,17 +230,24 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				}
 
 				m.activeServerIndex = m.selectedServerIndex
-				app.Channels = GetChannels(app.ServerListToDataMap[m.activeServerIndex].ID)
+				app.CurrentServerID = app.ServerListToDataMap[m.activeServerIndex].ID
+				app.Channels = GetChannels(app.CurrentServerID)
 				m.focusedPanel = channelMenu
 				app.Messages = nil
 				break
 			}
 
 			if m.focusedPanel == channelMenu && len(app.Channels) > 0 {
+				if m.selectedChannelIndex == 0 {
+					m.activeModal = NewCreateChannelModal()
+					m.modalType = joinServerModal
+
+					return m, nil
+				}
 				m.activeChannelIndex = m.selectedChannelIndex
 				m.focusedPanel = typingField
 				m.inMenu = false
-				serverID := app.ServerListToDataMap[m.activeServerIndex].ID
+				serverID := app.CurrentServerID
 				channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
 
 				app.Messages = app.ReverseMessages(GetMessages(
@@ -332,7 +343,7 @@ func (m ChatScreen) View() string {
 
 	serverIDLabel := ""
 	if m.activeServerIndex > 0 {
-		serverIDLabel = " | ServerID: " + fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
+		serverIDLabel = " | ServerID: " + fmt.Sprintf("%v", app.CurrentServerID)
 	}
 
 	addr := app.GetCurrentServerAddress() + serverIDLabel
@@ -601,7 +612,7 @@ func SendMessage(m *ChatScreen) {
 	}
 	if m.inputBuffer != "" {
 		payload := map[string]any{
-			"serverID":  app.ServerListToDataMap[m.activeServerIndex].ID,
+			"serverID":  app.CurrentServerID,
 			"channelID": fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
 			"content":   m.inputBuffer,
 			"authKey":   token,
@@ -658,25 +669,30 @@ func GetServers() []app.Server {
 
 func GetChannels(serverID any) []app.Channel {
 	JWTCookie, err := app.LoadToken()
-	if err != nil || JWTCookie == "" {
-		return nil
+	if err != nil {
+		fmt.Print(err)
 	}
-
 	reqPayload := GetChannelsRequest{
 		ServerID: fmt.Sprintf("%v", serverID),
 	}
 	url := "http://" + app.GetCurrentServerAddress() + app.GetChannelEndpoint
 
-	var channels []app.Channel
-	if err := app.POST(reqPayload, JWTCookie, url, &channels); err != nil {
+	var realChannels []app.Channel
+	if err := app.POST(reqPayload, JWTCookie, url, &realChannels); err != nil {
 		fmt.Println("Error:", err)
 		return nil
 	}
 
-	app.ChannelListToDataMap = make(map[int]app.Channel, len(channels))
-	for i, c := range channels {
+	createChannelItem := app.Channel{
+		ID:   "Six Seven",
+		Name: "+ Create",
+	}
 
-		app.ChannelListToDataMap[i] = c
+	channels := append([]app.Channel{createChannelItem}, realChannels...)
+
+	app.ChannelListToDataMap = make(map[int]app.Channel, len(channels))
+	for i, s := range channels {
+		app.ChannelListToDataMap[i] = s
 	}
 
 	return channels

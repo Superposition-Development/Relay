@@ -47,6 +47,7 @@ var currentServerAddress = ""
 var CurrentInteractionMode = Default
 var CurrentUserID = ""
 var Socket *websocket.Conn
+var CurrentServerID any
 var ServerListToDataMap = make(map[int]Server, 0)
 var ChannelListToDataMap = make(map[int]Channel, 0)
 var Servers = make([]Server, 0)
