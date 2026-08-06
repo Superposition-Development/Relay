@@ -36,7 +36,25 @@ func (m ChatScreen) renderJoinServerModal() string {
 	label := "\nServerID: "
 	serverIDLabel := textinput.New()
 	serverIDLabel.Prompt = ""
-	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Help & Keyboard Shortcuts")
+	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Create Server")
+	idRow := lipgloss.JoinHorizontal(lipgloss.Top, label, inputStyle.Render(serverIDLabel.View()))
+
+	content := fmt.Sprintf(
+		"%s\n\n"+
+			idRow+
+			"%s",
+		title,
+		"\n"+lipgloss.NewStyle().Foreground(lipgloss.Color("#767676")).Render("Press Esc or 'q' to close"),
+	)
+
+	return modalBoxStyle.Render(content)
+}
+
+func (m ChatScreen) renderCreateChannelModal() string {
+	label := "\nChannel Name: "
+	serverIDLabel := textinput.New()
+	serverIDLabel.Prompt = ""
+	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Create Channel")
 	idRow := lipgloss.JoinHorizontal(lipgloss.Top, label, inputStyle.Render(serverIDLabel.View()))
 
 	content := fmt.Sprintf(
