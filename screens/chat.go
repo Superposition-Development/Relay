@@ -17,6 +17,18 @@ var (
 	cursorStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#1a1a1a")).Background(cream)
 	selectedBorderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffdea5"))
 	activeStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#1a1a1a")).Background(lipgloss.Color("#ffdea5")).Bold(true)
+
+	dimStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#4a4a4a"))
+	modalBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(cream).
+			Background(lipgloss.Color("#121212")).
+			Padding(1, 2)
+)
+
+const (
+	modalTypeInfo = iota
+	modalTypeHelp
 )
 
 type tickMsg time.Time
@@ -39,6 +51,8 @@ type ChatScreen struct {
 	inMenu               bool
 	selectedServerIndex  int
 	activeServerIndex    int
+	showModal            bool
+	modalType            int
 }
 
 type GetChannelsRequest struct {
@@ -70,6 +84,7 @@ func CreateChatScreen(h, w int) *ChatScreen {
 		focusedPanel:       profileMenu,
 		activeChannelIndex: -1,
 		activeServerIndex:  -1,
+		showModal:          false,
 	}
 }
 
@@ -104,7 +119,21 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		m.cursorBlink = true
 		key := msg.String()
 
+		if m.showModal {
+			switch key {
+			case "esc", "q", "ctrl+o":
+				m.showModal = false
+				return m, nil
+			}
+			return m, nil
+		}
+
 		switch key {
+		case "ctrl+o":
+			m.showModal = true
+			m.modalType = modalTypeHelp
+			return m, nil
+
 		case "esc":
 			m.inMenu = false
 		case "ctrl+c":
@@ -152,6 +181,8 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 							}
 						}
 					case 1:
+						m.showModal = true
+						return m, nil
 					case 2:
 					}
 				}
@@ -322,7 +353,13 @@ func (m ChatScreen) View() string {
 	}
 
 	formattedContent = append(formattedContent, bottom)
-	return strings.Join(formattedContent, "\n")
+	baseView := strings.Join(formattedContent, "\n")
+
+	if m.showModal {
+		return overlayModal(baseView, m.renderJoinServerModal(), m.width, m.height)
+	}
+
+	return baseView
 }
 
 func renderListBox[T any](
