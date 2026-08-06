@@ -140,13 +140,19 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 			if m.focusedPanel == serverMenu && len(app.Servers) > 0 {
-				if m.selectedServerIndex == 0 {
-					return m, func() tea.Msg {
-						return app.ChangeScreenMsg{
-							Screen: NewCreateServerScreen(m.height, m.width),
-							Width:  m.width,
-							Height: m.height,
+				if m.selectedServerIndex <= 2 {
+					switch m.selectedServerIndex {
+
+					case 0:
+						return m, func() tea.Msg {
+							return app.ChangeScreenMsg{
+								Screen: NewCreateServerScreen(m.height, m.width),
+								Width:  m.width,
+								Height: m.height,
+							}
 						}
+					case 1:
+					case 2:
 					}
 				}
 
@@ -551,10 +557,20 @@ func GetServers() []app.Server {
 
 	createServerItem := app.Server{
 		ID:   "Six Seven",
-		Name: "+ Create Server",
+		Name: "+ Create",
 	}
 
-	servers := append([]app.Server{createServerItem}, realServers...)
+	joinServerItem := app.Server{
+		ID:   "Six Seven",
+		Name: "+ Join",
+	}
+
+	selectDMItem := app.Server{
+		ID:   "Six Seven",
+		Name: "+ DM",
+	}
+
+	servers := append([]app.Server{createServerItem, joinServerItem, selectDMItem}, realServers...)
 
 	app.ServerListToDataMap = make(map[int]app.Server, len(servers))
 	for i, s := range servers {
