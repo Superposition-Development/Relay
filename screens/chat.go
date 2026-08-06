@@ -255,7 +255,12 @@ func (m ChatScreen) View() string {
 	headerWidth := clamp(m.width-len(title)-5, 0, m.width)
 	top := borderStyle.Render("┌─ " + title + " " + strings.Repeat("─", headerWidth) + "┐")
 
-	addr := app.GetCurrentServerAddress()
+	serverIDLabel := ""
+	if m.activeServerIndex > 0 {
+		serverIDLabel = " | ServerID: " + fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
+	}
+
+	addr := app.GetCurrentServerAddress() + serverIDLabel
 	userID := app.CurrentUserID
 	spacing := clamp(m.width-len(addr)-len(userID)-2, 1, m.width)
 	middle := borderStyle.Render("│" + addr + strings.Repeat(" ", spacing) + userID + "│")
