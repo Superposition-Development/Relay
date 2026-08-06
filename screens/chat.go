@@ -64,10 +64,12 @@ const (
 func CreateChatScreen(h, w int) *ChatScreen {
 	app.Servers = GetServers()
 	return &ChatScreen{
-		height:       h,
-		width:        w - 1,
-		cursorBlink:  true,
-		focusedPanel: profileMenu,
+		height:             h,
+		width:              w - 1,
+		cursorBlink:        true,
+		focusedPanel:       profileMenu,
+		activeChannelIndex: -1,
+		activeServerIndex:  -1,
 	}
 }
 
@@ -78,6 +80,9 @@ func (m *ChatScreen) Init() tea.Cmd {
 func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case app.WebsocketMsg:
+		if m.activeServerIndex < 0 || m.activeChannelIndex < 0 {
+			return m, nil
+		}
 		activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
 		activeChannelID := fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID)
 
@@ -135,8 +140,17 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 			if m.focusedPanel == serverMenu && len(app.Servers) > 0 {
+				if m.selectedServerIndex == 0 {
+					return m, func() tea.Msg {
+						return app.ChangeScreenMsg{
+							Screen: NewCreateServerScreen(m.height, m.width),
+							Width:  m.width,
+							Height: m.height,
+						}
+					}
+				}
+
 				m.activeServerIndex = m.selectedServerIndex
-				m.selectedChannelIndex = 0
 				app.Channels = GetChannels(app.ServerListToDataMap[m.activeServerIndex].ID)
 				m.focusedPanel = channelMenu
 				app.Messages = nil
@@ -167,11 +181,6 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			if !m.inMenu {
 				m.focusedPanel = (m.focusedPanel + 1) % (typingField + 1)
 			}
-		// case "ctrl+tab":
-		// 	if !m.inMenu {
-		// 		numPanels := typingField + 1
-		// 		m.focusedPanel = (m.focusedPanel - 1 + numPanels) % numPanels
-		// 	}
 
 		case "backspace":
 			if m.cursorPos > 0 {
@@ -529,17 +538,24 @@ func GetServers() []app.Server {
 		return nil
 	}
 
-	var servers []app.Server
-	if err := json.Unmarshal(res.Data, &servers); err != nil {
+	var realServers []app.Server
+	if err := json.Unmarshal(res.Data, &realServers); err != nil {
 		fmt.Println("Error decoding servers:", err)
 		return nil
 	}
 
+	createServerItem := app.Server{
+		ID:   "Six Seven",
+		Name: "+ Create Server",
+	}
+
+	servers := append([]app.Server{createServerItem}, realServers...)
+
 	app.ServerListToDataMap = make(map[int]app.Server, len(servers))
 	for i, s := range servers {
-
 		app.ServerListToDataMap[i] = s
 	}
+
 	return servers
 }
 
@@ -590,12 +606,6 @@ func GetMessages(serverID any, channelID any, messageID any, ascending any, more
 		fmt.Println("Error:", err)
 		return nil
 	}
-
-	// app.ChannelListToDataMap = make(map[int]app.Channel, len(channels))
-	// for i, c := range channels {
-
-	// 	app.ChannelListToDataMap[i] = c
-	// }
 
 	return messages
 }

@@ -133,6 +133,7 @@ func (m SignupScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					app.RegisterWebsocket(websocketProtocol+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {
 						app.WSChan <- msg
 					})
+					app.IsServerSecure = !m.useHTTP
 					return m, func() tea.Msg {
 						return app.ChangeScreenMsg{
 							Screen: CreateChatScreen(m.height, m.width),
