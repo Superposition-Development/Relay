@@ -190,6 +190,9 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				SendMessage(m)
 			}
 
+		case "end":
+			m.scrollOffset = 0
+
 		case "enter":
 			if m.focusedPanel == typingField {
 				if app.CurrentInteractionMode == app.Write {
