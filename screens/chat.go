@@ -48,6 +48,7 @@ type ChatScreen struct {
 	activeServerIndex    int
 	modalType            int
 	activeModal          Modal
+	scrollOffset         int
 }
 
 type GetChannelsRequest struct {
@@ -292,6 +293,11 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			if m.inMenu && m.focusedPanel == channelMenu && len(app.Channels) > 0 {
 				m.selectedChannelIndex = (m.selectedChannelIndex + 1) % len(app.Channels)
 			}
+			if m.focusedPanel == messages {
+				if m.scrollOffset > 0 {
+					m.scrollOffset--
+				}
+			}
 
 		case "up":
 			if m.inMenu && m.focusedPanel == serverMenu && len(app.Servers) > 0 {
@@ -305,6 +311,9 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				if m.selectedChannelIndex < 0 {
 					m.selectedChannelIndex = len(app.Channels) - 1
 				}
+			}
+			if m.focusedPanel == messages {
+				m.scrollOffset++
 			}
 
 		default:
@@ -371,6 +380,7 @@ func (m ChatScreen) View() string {
 		m.cursorPos,
 		m.cursorBlink,
 		m.focusedPanel == typingField,
+		m.scrollOffset,
 	)
 	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels, chat)
 
@@ -471,43 +481,34 @@ func formatMessageTime(epochSecs int64) string {
 	return time.Unix(epochSecs, 0).Local().Format("3:04 PM (01/02/2006)")
 }
 
-func chatBox(width, height, topLine int, title string, messages []app.Message, input string, cursorPos int, cursorBlink bool, isFocused bool) string {
-	width = clamp(width, 2, width)
-	height = clamp(height, 4, height)
+func chatBox(width, height, topLine int, title string, messages []app.Message, input string, cursorPos int, cursorBlink, isFocused bool, scrollOffset int) string {
+	width, height = clamp(width, 2, width), clamp(height, 4, height)
 	innerWidth := width - 2
 
-	empty := "│" + strings.Repeat(" ", innerWidth) + "│"
-	horizontal := "├" + strings.Repeat("─", innerWidth) + "┤"
-
+	empty, horizontal := "│"+strings.Repeat(" ", innerWidth)+"│", "├"+strings.Repeat("─", innerWidth)+"┤"
 	var formattedInputLines []string
 	runes := []rune(input)
-	currentLine := "┃ "
-	currentLineWidth := 2
+	currentLine, currentLineWidth := "┃ ", 2
 
 	for i, r := range runes {
 		charStr := string(r)
 		if r == '\n' {
 			charStr = " "
 		}
-
 		renderedChar := charStr
 		if i == cursorPos && cursorBlink {
 			renderedChar = cursorStyle.Render(charStr) + borderStyle.Render("")
 		}
-
 		if currentLineWidth+lipgloss.Width(charStr) > innerWidth {
 			formattedInputLines = append(formattedInputLines, currentLine)
-			currentLine = "┃ " + renderedChar
-			currentLineWidth = 2 + lipgloss.Width(charStr)
+			currentLine, currentLineWidth = "┃ "+renderedChar, 2+lipgloss.Width(charStr)
 		} else {
 			currentLine += renderedChar
 			currentLineWidth += lipgloss.Width(charStr)
 		}
-
 		if r == '\n' {
 			formattedInputLines = append(formattedInputLines, currentLine)
-			currentLine = "┃ "
-			currentLineWidth = 2
+			currentLine, currentLineWidth = "┃ ", 2
 		}
 	}
 
@@ -516,7 +517,6 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 		if cursorBlink && isFocused {
 			cursorChar = cursorStyle.Render(" ") + borderStyle.Render("")
 		}
-
 		if currentLineWidth+1 > innerWidth {
 			formattedInputLines = append(formattedInputLines, currentLine)
 			currentLine = "┃ " + cursorChar
@@ -529,20 +529,15 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 	dividerLine := clamp(height-len(formattedInputLines)-2, topLine+1, height-1)
 	messageAreaHeight := dividerLine - (topLine + 1)
 
-	var messageLines []string
-	senderStyle := lipgloss.NewStyle().Foreground(cream).Bold(true)
-	timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
+	var allMessageLines []string
+	senderStyle, timeStyle := lipgloss.NewStyle().Foreground(cream).Bold(true), lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
 
 	for _, msg := range messages {
-		timeStr := formatMessageTime(msg.Timestamp)
-
-		messageLines = append(messageLines, senderStyle.Render(msg.Username)+" "+timeStyle.Render(timeStr)+":")
-
-		words := strings.Fields(msg.Content)
+		allMessageLines = append(allMessageLines, senderStyle.Render(msg.Username)+" "+timeStyle.Render(formatMessageTime(msg.Timestamp))+":")
 		line := "  "
-		for _, word := range words {
+		for _, word := range strings.Fields(msg.Content) {
 			if lipgloss.Width(line)+lipgloss.Width(word)+1 > innerWidth {
-				messageLines = append(messageLines, line)
+				allMessageLines = append(allMessageLines, line)
 				line = "  " + word
 			} else {
 				if line == "  " {
@@ -553,12 +548,32 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 			}
 		}
 		if strings.TrimSpace(line) != "" {
-			messageLines = append(messageLines, line)
+			allMessageLines = append(allMessageLines, line)
 		}
 	}
 
-	if len(messageLines) > messageAreaHeight {
-		messageLines = messageLines[len(messageLines)-messageAreaHeight:]
+	totalLines := len(allMessageLines)
+	maxOffset := clamp(totalLines-messageAreaHeight, 0, totalLines)
+	scrollOffset = clamp(scrollOffset, 0, maxOffset)
+
+	endIdx := totalLines - scrollOffset
+	startIdx := endIdx - messageAreaHeight
+
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if endIdx < 0 {
+		endIdx = 0
+	}
+
+	visibleLines := allMessageLines[startIdx:endIdx]
+
+	scrollbarThumbRow := -1
+	showScrollbar := totalLines > messageAreaHeight
+
+	if showScrollbar {
+		scrollRatio := float64(scrollOffset) / float64(maxOffset)
+		scrollbarThumbRow = int(float64(messageAreaHeight-1) * (1.0 - scrollRatio))
 	}
 
 	lines := make([]string, height)
@@ -581,13 +596,32 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 		lines[topLine] = horizontal
 	}
 
-	for i, msgLine := range messageLines {
+	thumbStyle := lipgloss.NewStyle().Foreground(cream)
+	trackStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#3a3a3a"))
+
+	for i := 0; i < messageAreaHeight; i++ {
 		row := (topLine + 1) + i
 		if row >= dividerLine {
 			break
 		}
-		pad := clamp(innerWidth-lipgloss.Width(msgLine), 0, innerWidth)
-		lines[row] = "│" + msgLine + strings.Repeat(" ", pad) + "│"
+
+		msgContent := ""
+		if i < len(visibleLines) {
+			msgContent = visibleLines[i]
+		}
+
+		padLen := clamp(innerWidth-lipgloss.Width(msgContent), 0, innerWidth)
+		rightChar := "│"
+
+		if showScrollbar {
+			if i == scrollbarThumbRow {
+				rightChar = thumbStyle.Render("█")
+			} else {
+				rightChar = trackStyle.Render("│")
+			}
+		}
+
+		lines[row] = "│" + msgContent + strings.Repeat(" ", padLen) + rightChar
 	}
 
 	lines[dividerLine] = horizontal
@@ -598,8 +632,7 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 		if row >= height-1 {
 			break
 		}
-		padding := clamp(innerWidth-lipgloss.Width(inputLine), 0, innerWidth)
-		lines[row] = inputLine + strings.Repeat(" ", padding) + " │"
+		lines[row] = inputLine + strings.Repeat(" ", clamp(innerWidth-lipgloss.Width(inputLine), 0, innerWidth)) + " │"
 	}
 
 	return strings.Join(lines, "\n")
