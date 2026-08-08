@@ -382,7 +382,7 @@ func (m ChatScreen) View() string {
 		m.inputBuffer,
 		m.cursorPos,
 		m.cursorBlink,
-		m.focusedPanel == typingField,
+		m.focusedPanel,
 		m.scrollOffset,
 	)
 	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels, chat)
@@ -484,11 +484,20 @@ func formatMessageTime(epochSecs int64) string {
 	return time.Unix(epochSecs, 0).Local().Format("3:04 PM (01/02/2006)")
 }
 
-func chatBox(width, height, topLine int, title string, messages []app.Message, input string, cursorPos int, cursorBlink, isFocused bool, scrollOffset int) string {
+func chatBox(width, height, topLine int, title string, messageArray []app.Message, input string, cursorPos int, cursorBlink bool, focusIndex int, scrollOffset int) string {
 	width, height = clamp(width, 2, width), clamp(height, 4, height)
 	innerWidth := width - 2
 
-	empty, horizontal := "│"+strings.Repeat(" ", innerWidth)+"│", "├"+strings.Repeat("─", innerWidth)+"┤"
+	activeBorder := borderStyle
+	if focusIndex == messages {
+		activeBorder = selectedBorderStyle
+	}
+
+	leftBorder := activeBorder.Render("│")
+	rightBorder := activeBorder.Render("│")
+	empty := leftBorder + strings.Repeat(" ", innerWidth) + rightBorder
+	horizontal := activeBorder.Render("├" + strings.Repeat("─", innerWidth) + "┤")
+
 	var formattedInputLines []string
 	runes := []rune(input)
 	currentLine, currentLineWidth := "┃ ", 2
@@ -500,7 +509,7 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 		}
 		renderedChar := charStr
 		if i == cursorPos && cursorBlink {
-			renderedChar = cursorStyle.Render(charStr) + borderStyle.Render("")
+			renderedChar = cursorStyle.Render(charStr) + activeBorder.Render("")
 		}
 		if currentLineWidth+lipgloss.Width(charStr) > innerWidth {
 			formattedInputLines = append(formattedInputLines, currentLine)
@@ -517,8 +526,8 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 
 	if cursorPos >= len(runes) {
 		cursorChar := " "
-		if cursorBlink && isFocused {
-			cursorChar = cursorStyle.Render(" ") + borderStyle.Render("")
+		if cursorBlink && focusIndex == typingField {
+			cursorChar = cursorStyle.Render(" ") + activeBorder.Render("")
 		}
 		if currentLineWidth+1 > innerWidth {
 			formattedInputLines = append(formattedInputLines, currentLine)
@@ -535,7 +544,7 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 	var allMessageLines []string
 	senderStyle, timeStyle := lipgloss.NewStyle().Foreground(cream).Bold(true), lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
 
-	for _, msg := range messages {
+	for _, msg := range messageArray {
 		allMessageLines = append(allMessageLines, senderStyle.Render(msg.Username)+" "+timeStyle.Render(formatMessageTime(msg.Timestamp))+":")
 		line := "  "
 		for _, word := range strings.Fields(msg.Content) {
@@ -585,14 +594,12 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 	}
 
 	if topLine > 0 && title != "" {
-		textRow := []rune(empty)
-		for i, r := range []rune(title) {
-			if i+1 >= innerWidth+1 {
-				break
-			}
-			textRow[i+1] = r
+		paddedTitle := title
+		if lipgloss.Width(paddedTitle) > innerWidth {
+			paddedTitle = paddedTitle[:innerWidth]
 		}
-		lines[topLine-1] = string(textRow)
+		padLen := clamp(innerWidth-lipgloss.Width(paddedTitle), 0, innerWidth)
+		lines[topLine-1] = leftBorder + paddedTitle + strings.Repeat(" ", padLen) + rightBorder
 	}
 
 	if topLine >= 0 && topLine < height {
@@ -614,7 +621,7 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 		}
 
 		padLen := clamp(innerWidth-lipgloss.Width(msgContent), 0, innerWidth)
-		rightChar := "│"
+		rightChar := rightBorder
 
 		if showScrollbar {
 			if i == scrollbarThumbRow {
@@ -624,7 +631,7 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 			}
 		}
 
-		lines[row] = "│" + msgContent + strings.Repeat(" ", padLen) + rightChar
+		lines[row] = leftBorder + msgContent + strings.Repeat(" ", padLen) + rightChar
 	}
 
 	lines[dividerLine] = horizontal
@@ -635,7 +642,7 @@ func chatBox(width, height, topLine int, title string, messages []app.Message, i
 		if row >= height-1 {
 			break
 		}
-		lines[row] = inputLine + strings.Repeat(" ", clamp(innerWidth-lipgloss.Width(inputLine), 0, innerWidth)) + " │"
+		lines[row] = inputLine + strings.Repeat(" ", clamp(innerWidth-lipgloss.Width(inputLine), 0, innerWidth)) + " " + rightBorder
 	}
 
 	return strings.Join(lines, "\n")
