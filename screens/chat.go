@@ -94,6 +94,33 @@ func (m *ChatScreen) Init() tea.Cmd {
 	return tea.Batch(app.ListenForWSMsg(), tickCmd())
 }
 
+func calculateTotalMessageLines(messages []app.Message, innerWidth int) int {
+	if innerWidth <= 0 {
+		return 0
+	}
+	total := 0
+	for _, msg := range messages {
+		total++
+		line := "  "
+		for _, word := range strings.Fields(msg.Content) {
+			if lipgloss.Width(line)+lipgloss.Width(word)+1 > innerWidth {
+				total++
+				line = "  " + word
+			} else {
+				if line == "  " {
+					line += word
+				} else {
+					line += " " + word
+				}
+			}
+		}
+		if strings.TrimSpace(line) != "" {
+			total++
+		}
+	}
+	return total
+}
+
 func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case app.WebsocketMsg:
@@ -319,7 +346,19 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				}
 			}
 			if m.focusedPanel == messages {
-				m.scrollOffset++
+				messageAreaHeight := m.height - 7
+
+				totalLines := calculateTotalMessageLines(app.Messages, m.width-32)
+				maxOffset := clamp(totalLines-messageAreaHeight, 0, totalLines)
+
+				if m.scrollOffset < maxOffset {
+					m.scrollOffset++
+				} else if len(app.Messages) > 0 {
+					scrolledMessages := GetMessages(app.CurrentServerID, app.ChannelListToDataMap[m.activeChannelIndex].ID, app.Messages[0].ID, false, false)
+					app.Messages = append(scrolledMessages, app.Messages...)
+					m.scrollOffset += len(scrolledMessages)
+					return m, nil
+				}
 			}
 
 		default:
