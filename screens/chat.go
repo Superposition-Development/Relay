@@ -342,7 +342,7 @@ func (m *ChatScreen) insertRune(r rune) {
 	m.insertString(string(r))
 }
 
-func (m ChatScreen) View() string {
+func (m *ChatScreen) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
 	}
@@ -382,7 +382,7 @@ func (m ChatScreen) View() string {
 		1,
 		app.ChannelListToDataMap[m.activeChannelIndex].Name,
 		app.Messages,
-		&m)
+		m)
 	// 	m.inputBuffer,
 	// 	m.cursorPos,
 	// 	m.cursorBlink,
