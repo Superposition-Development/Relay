@@ -383,12 +383,6 @@ func (m *ChatScreen) View() string {
 		app.ChannelListToDataMap[m.activeChannelIndex].Name,
 		app.Messages,
 		m)
-	// 	m.inputBuffer,
-	// 	m.cursorPos,
-	// 	m.cursorBlink,
-	// 	m.focusedPanel,
-	// 	m.scrollOffset,
-	// )
 	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels, chat)
 
 	sepRunes := []rune(strings.Repeat("─", m.width-2))
@@ -488,15 +482,9 @@ func formatMessageTime(epochSecs int64) string {
 	return time.Unix(epochSecs, 0).Local().Format("3:04 PM (01/02/2006)")
 }
 
-func chatBox(width, height, topLine int, title string, messageArray []app.Message, model *ChatScreen) string { //input string, cursorPos int, cursorBlink bool, focusIndex int, scrollOffset int) string {
+func chatBox(width, height, topLine int, title string, messageArray []app.Message, model *ChatScreen) string {
 	width, height = clamp(width, 2, width), clamp(height, 4, height)
 	innerWidth := width - 2
-
-	// m.inputBuffer,//input string,
-	// 	m.cursorPos, cursorPos int,
-	// 	m.cursorBlink, cursorBlink bool,
-	// 	m.focusedPanel, focusIndex int,
-	// 	m.scrollOffset, scrollOffset int
 
 	activeBorder := borderStyle
 	if model.focusedPanel == messages {
