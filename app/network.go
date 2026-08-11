@@ -17,12 +17,6 @@ var (
 	mu sync.Mutex
 )
 
-type WSMessage struct {
-	Message string      `json:"message"`
-	AuthKey string      `json:"authKey"`
-	Content interface{} `json:"content,omitempty"`
-}
-
 type ResponseResult struct {
 	Data  []byte
 	Error error
@@ -173,16 +167,16 @@ func SendWebsocketJSON(message any) {
 
 var WSChan = make(chan map[string]any, 100)
 
-type WebsocketMsg struct {
+type WebsocketMesssage struct {
 	Type string `json:"type"`
 
-	Data map[string]any `json:"data"`
+	Data interface{} `json:"data"`
 }
 
 func ListenForWSMsg() tea.Cmd {
 	return func() tea.Msg {
 		msg := <-WSChan
-		return WebsocketMsg{
+		return WebsocketMesssage{
 			Type: msg["type"].(string),
 			Data: msg["data"].(map[string]any),
 		}

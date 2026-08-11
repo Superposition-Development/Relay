@@ -123,7 +123,7 @@ func calculateTotalMessageLines(messages []app.Message, innerWidth int) int {
 
 func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
-	case app.WebsocketMsg:
+	case app.WebsocketMesssage:
 		switch msg.Type {
 		case "recieveMessage":
 			if m.activeServerIndex < 0 || m.activeChannelIndex < 0 {
@@ -133,23 +133,31 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
 			activeChannelID := fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID)
 
-			serverID := fmt.Sprintf("%v", msg.Data["serverID"])
-			channelID := fmt.Sprintf("%v", msg.Data["channelID"])
-
+			serverID := ""
+			channelID := ""
+			name := ""
+			content := ""
 			var msgID int64
-			if idFloat, ok := msg.Data["id"].(float64); ok {
-				msgID = int64(idFloat)
-			}
-
 			var timestamp int64
-			if tsFloat, ok := msg.Data["timestamp"].(float64); ok {
-				timestamp = int64(tsFloat)
+
+			if dataMap, ok := msg.Data.(map[string]interface{}); ok {
+				serverID = fmt.Sprintf("%v", dataMap["serverID"])
+				channelID = fmt.Sprintf("%v", dataMap["channelID"])
+				name = fmt.Sprintf("%v", dataMap["name"])
+				content = fmt.Sprintf("%v", dataMap["content"])
+				if idFloat, ok := dataMap["id"].(float64); ok {
+					msgID = int64(idFloat)
+				}
+
+				if tsFloat, ok := dataMap["timestamp"].(float64); ok {
+					timestamp = int64(tsFloat)
+				}
 			}
 
 			newMessage := app.Message{
 				ID:        msgID,
-				Username:  msg.Data["name"].(string),
-				Content:   msg.Data["content"].(string),
+				Username:  name,
+				Content:   content,
 				Timestamp: timestamp,
 			}
 
