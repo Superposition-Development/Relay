@@ -254,7 +254,7 @@ func (m StartScreen) View() string {
 		m.connect.View(),
 	)
 
-	scheme := "https://"
+	scheme := "https://" //dont change these for url.url
 	if m.useHTTP {
 		scheme = "http://"
 	}

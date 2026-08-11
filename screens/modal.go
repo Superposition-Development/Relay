@@ -3,6 +3,7 @@ package screens
 import (
 	"Relay/app"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -222,20 +223,21 @@ func JoinServer(serverID string) {
 		"serverID": serverID,
 	}
 
-	protocol := "http://"
-	if app.IsServerSecure {
-		protocol = "https://"
-	}
-
 	token, err := app.LoadToken()
 	if err != nil {
 
 	}
 
+	url := url.URL{
+		Scheme: app.ServerURL.Scheme,
+		Host:   app.ServerURL.Host,
+		Path:   app.JoinServerEndpoint,
+	}
+
 	err = app.POST(
 		payload,
 		token,
-		protocol+app.GetCurrentServerAddress()+app.JoinServerEndpoint,
+		url.String()+app.JoinServerEndpoint,
 		&response,
 	)
 
@@ -250,20 +252,21 @@ func CreateChannel(serverID string, channelName string) {
 		"name":     channelName,
 	}
 
-	protocol := "http://"
-	if app.IsServerSecure {
-		protocol = "https://"
-	}
-
 	token, err := app.LoadToken()
 	if err != nil {
 
 	}
 
+	url := url.URL{
+		Scheme: app.ServerURL.Scheme,
+		Host:   app.ServerURL.Host,
+		Path:   app.CreateChannelEndpoint,
+	}
+
 	err = app.POST(
 		payload,
 		token,
-		protocol+app.GetCurrentServerAddress()+app.CreateChannelEndpoint,
+		url.String()+app.CreateChannelEndpoint,
 		&response,
 	)
 

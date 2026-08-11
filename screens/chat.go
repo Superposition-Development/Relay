@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/url"
 	"strings"
 	"time"
 
@@ -408,7 +409,7 @@ func (m *ChatScreen) View() string {
 		serverIDLabel = " | ServerID: " + fmt.Sprintf("%v", app.CurrentServerID)
 	}
 
-	addr := app.GetCurrentServerAddress() + serverIDLabel
+	addr := app.ServerURL.Host + serverIDLabel
 	userID := app.CurrentUserID
 	spacing := clamp(m.width-len(addr)-len(userID)-2, 1, m.width)
 	middle := borderStyle.Render("│" + addr + strings.Repeat(" ", spacing) + userID + "│")
@@ -712,7 +713,12 @@ func GetServers() []app.Server {
 	if err != nil {
 		fmt.Print(err)
 	}
-	res := app.GET(JWTCookie, "http://"+app.GetCurrentServerAddress()+app.GetServerEndpoint)
+	loginURL := url.URL{
+		Scheme: app.ServerURL.Scheme,
+		Host:   app.ServerURL.Host,
+		Path:   app.GetServerEndpoint,
+	}
+	res := app.GET(JWTCookie, loginURL.String())
 	if res.Error != nil {
 		fmt.Println("Error:", res.Error)
 		return nil
@@ -757,10 +763,14 @@ func GetChannels(serverID any) []app.Channel {
 	reqPayload := GetChannelsRequest{
 		ServerID: fmt.Sprintf("%v", serverID),
 	}
-	url := "http://" + app.GetCurrentServerAddress() + app.GetChannelEndpoint
+	getChannelURL := url.URL{
+		Scheme: app.ServerURL.Scheme,
+		Host:   app.ServerURL.Host,
+		Path:   app.GetChannelEndpoint,
+	}
 
 	var realChannels []app.Channel
-	if err := app.POST(reqPayload, JWTCookie, url, &realChannels); err != nil {
+	if err := app.POST(reqPayload, JWTCookie, getChannelURL.String(), &realChannels); err != nil {
 		fmt.Println("Error:", err)
 		return nil
 	}
@@ -794,10 +804,14 @@ func GetMessages(serverID any, channelID any, messageID any, ascending any, more
 		Ascending: fmt.Sprintf("%v", ascending),
 		MoreThan:  fmt.Sprintf("%v", moreThan),
 	}
-	url := "http://" + app.GetCurrentServerAddress() + app.GetMessagesEndpoint
+	url := url.URL{
+		Scheme: app.ServerURL.Scheme,
+		Host:   app.ServerURL.Host,
+		Path:   app.GetMessagesEndpoint,
+	}
 
 	var messages []app.Message
-	if err := app.POST(reqPayload, JWTCookie, url, &messages); err != nil {
+	if err := app.POST(reqPayload, JWTCookie, url.String(), &messages); err != nil {
 		fmt.Println("Error:", err)
 		return nil
 	}

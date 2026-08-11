@@ -3,6 +3,7 @@ package screens
 import (
 	"Relay/app"
 	_ "embed"
+	"net/url"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -104,26 +105,35 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					"password": m.password.Value(),
 				}
 
-				protocol := "https://"
-				websocketProtocol := "wss://"
+				protocol := "https"
+				websocketProtocol := "wss"
 
 				if m.isHttp {
-					protocol = "http://"
-					websocketProtocol = "ws://"
+					protocol = "http"
+					websocketProtocol = "ws"
 				}
 
-				data, err := Login(protocol+m.serverAdress, payload)
+				server := url.URL{
+					Scheme: protocol,
+					Host:   m.serverAdress,
+				}
+
+				data, err := Login(server.String(), payload)
 				if err != nil {
 					m.loginError = err.Error()
 				}
 				if data.RelayJWT != "" {
 					app.SaveToken(data.RelayJWT)
 					app.CurrentUserID = m.userID.Value()
-					app.SetCurrentServerAddress(m.serverAdress)
+
 					app.RegisterWebsocket(websocketProtocol+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {
 						app.WSChan <- msg
 					})
-					app.IsServerSecure = !m.isHttp
+					app.ServerURL.Host = m.serverAdress
+					app.ServerURL.Scheme = protocol
+					app.WebsocketURL.Host = m.serverAdress
+					app.WebsocketURL.Scheme = websocketProtocol
+
 					return m, func() tea.Msg {
 						return app.ChangeScreenMsg{
 							Screen: CreateChatScreen(m.height, m.width),
@@ -201,10 +211,10 @@ func (m LoginScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	protocol := "https://"
+	protocol := "https"
 
 	if m.isHttp {
-		protocol = "http://"
+		protocol = "http"
 
 	}
 

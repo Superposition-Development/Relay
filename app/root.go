@@ -1,6 +1,7 @@
 package app
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -42,7 +43,6 @@ type Message struct {
 	Pfp       string `json:"pfp"`
 }
 
-var IsServerSecure = false //is it using https:// and by extension wss://
 var currentServerAddress = ""
 var CurrentInteractionMode = Default
 var CurrentUserID = ""
@@ -54,13 +54,8 @@ var Servers = make([]Server, 0)
 var Channels = make([]Channel, 0)
 var Messages = make([]Message, 0)
 
-func SetCurrentServerAddress(address string) {
-	currentServerAddress = address
-}
-
-func GetCurrentServerAddress() string {
-	return currentServerAddress
-}
+var ServerURL url.URL
+var WebsocketURL url.URL
 
 func GetLocalFilesPath() (string, error) {
 	configDir, err := os.UserConfigDir()

@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"net/url"
 	"strings"
 
 	"Relay/app"
@@ -194,7 +195,7 @@ func (m CreateServerScreen) View() string {
 
 	top := borderStyle.Render("┌─ " + title + " " + strings.Repeat("─", headerWidth) + "┐")
 
-	addr := app.GetCurrentServerAddress()
+	addr := app.ServerURL.Host
 	userID := app.CurrentUserID
 	spacing := clamp(m.width-len(addr)-len(userID)-2, 1, m.width)
 	middle := borderStyle.Render("│" + addr + strings.Repeat(" ", spacing) + userID + "│")
@@ -239,15 +240,16 @@ func CreateServer(payload any) {
 
 	}
 
-	protocol := "http://"
-	if app.IsServerSecure {
-		protocol = "https://"
+	url := url.URL{
+		Scheme: app.ServerURL.Scheme,
+		Host:   app.ServerURL.Host,
+		Path:   app.CreateServerEndpoint,
 	}
 
 	err = app.POST(
 		payload,
 		token,
-		protocol+app.GetCurrentServerAddress()+app.CreateServerEndpoint,
+		url.String(),
 		&response,
 	)
 
