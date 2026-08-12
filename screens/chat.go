@@ -415,7 +415,19 @@ func (m *ChatScreen) View() string {
 	servers := renderListBox("Servers", app.Servers, func(s app.Server) string { return s.Name },
 		serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.activeServerIndex, m.cursorBlink)
 
-	channels := renderListBox("Channels", app.Channels, func(c app.Channel) string { return "# " + c.Name },
+	channels := renderListBox("Channels", app.Channels, func(c app.Channel) string {
+		symbol := ""
+		switch c.Type {
+		case "voice":
+			symbol = "☏"
+		case "text":
+			symbol = "#"
+		case "Create":
+			symbol = "+"
+		}
+
+		return symbol + " " + c.Name
+	},
 		channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
 
 	chat := chatBox(
@@ -771,8 +783,8 @@ func GetChannels(serverID any) []app.Channel {
 
 	createChannelItem := app.Channel{
 		ID:   "Six Seven",
-		Name: "+ Create",
-		Type: "text",
+		Name: "Create",
+		Type: "Create",
 	}
 
 	channels := append([]app.Channel{createChannelItem}, realChannels...)
