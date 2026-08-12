@@ -359,8 +359,9 @@ func (a *AudioEngine) Close() {
 }
 
 type CallControl struct {
-	wsMu *sync.Mutex
-	ws   *websocket.Conn
+	wsMu   *sync.Mutex
+	ws     *websocket.Conn
+	callID string
 
 	pc *webrtc.PeerConnection
 
@@ -371,11 +372,12 @@ type CallControl struct {
 	remoteDescSet     bool
 }
 
-func InstantiateCallControl() *CallControl {
+func InstantiateCallControl(callID any) *CallControl {
 
 	return &CallControl{
-		wsMu: &mu,
-		ws:   GetConn(),
+		wsMu:   &mu,
+		ws:     GetConn(),
+		callID: fmt.Sprintf("%v", callID),
 	}
 }
 
@@ -386,8 +388,7 @@ func (m *CallControl) sendWSMessage(Type string, Content map[string]interface{})
 	payload := map[string]interface{}{
 		"authKey": authKey,
 		"message": Type,
-		"userID":  "poop",
-		"callID":  "fortnite",
+		"callID":  m.callID,
 	}
 
 	for k, v := range Content {

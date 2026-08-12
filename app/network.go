@@ -129,7 +129,7 @@ func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg 
 	}
 
 	SendWebsocketJSON(registerMessage)
-	GlobalCallControl = InstantiateCallControl()
+	// GlobalCallControl = InstantiateCallControl()
 
 	go func() {
 		defer func() {

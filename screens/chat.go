@@ -216,11 +216,9 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 		case "ctrl+s":
 
-			app.GlobalCallControl = app.InstantiateCallControl()
 			if app.CurrentInteractionMode == app.Write {
 				SendMessage(m)
 			}
-			return m, app.GlobalCallControl.StartCallRoutine()
 
 		case "home":
 			m.scrollOffset = math.MaxInt
@@ -288,6 +286,11 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				m.inMenu = false
 				serverID := app.CurrentServerID
 				channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
+
+				if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
+					app.GlobalCallControl = app.InstantiateCallControl(channelID)
+					return m, app.GlobalCallControl.StartCallRoutine()
+				}
 
 				app.Messages = app.ReverseMessages(GetMessages(
 					serverID,
