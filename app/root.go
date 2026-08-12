@@ -33,6 +33,7 @@ type Server struct {
 type Channel struct {
 	ID   any    `json:"id"`
 	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type Message struct {

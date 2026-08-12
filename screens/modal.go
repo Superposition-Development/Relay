@@ -81,14 +81,16 @@ func (m *JoinServerModal) View() string {
 }
 
 type CreateChannelModal struct {
-	input textinput.Model
+	channelName textinput.Model
+	focused     int
+	isText      bool //false means voice
 }
 
 func NewCreateChannelModal() *CreateChannelModal {
 	ti := textinput.New()
 	ti.Prompt = ""
 	ti.Focus()
-	return &CreateChannelModal{input: ti}
+	return &CreateChannelModal{channelName: ti, focused: 0, isText: true}
 }
 
 func (m *CreateChannelModal) Update(msg tea.Msg) (Modal, tea.Cmd, any) {
@@ -96,25 +98,78 @@ func (m *CreateChannelModal) Update(msg tea.Msg) (Modal, tea.Cmd, any) {
 		switch keyMsg.String() {
 		case "esc":
 			return nil, nil, nil
-		case "enter":
 
-			CreateChannel(fmt.Sprintf("%v", app.CurrentServerID), m.input.Value())
-			return nil, nil, m.input.Value()
+		case "tab", "shift+tab":
+			if m.focused == 0 {
+				m.focused = 1
+				m.channelName.Blur()
+			} else {
+				m.focused = 0
+				m.channelName.Focus()
+			}
+			return m, nil, nil
+
+		case "enter":
+			if m.focused == 1 {
+				m.isText = !m.isText
+				return m, nil, nil
+			}
+
+			channelType := "voice"
+			if m.isText {
+				channelType = "text"
+			}
+			CreateChannel(fmt.Sprintf("%v", app.CurrentServerID), m.channelName.Value(), channelType)
+			return nil, nil, m.channelName.Value()
 		}
 	}
 
 	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
+	if m.focused == 0 {
+		m.channelName, cmd = m.channelName.Update(msg)
+	}
 	return m, cmd, nil
 }
 
 func (m *CreateChannelModal) View() string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(cream).Render("Create Channel")
-	idRow := lipgloss.JoinHorizontal(lipgloss.Top, "\nName: ", inputStyle.Render(m.input.View()))
+	renderButton := func(text string, width int, focused bool) string {
+		style := lipgloss.NewStyle().
+			Width(width).
+			Align(lipgloss.Center).
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(cream).
+			Foreground(cream)
 
-	content := fmt.Sprintf("%s\n\n%s\n\n%s",
+		if focused {
+			style = style.
+				BorderForeground(selectedCream).
+				Foreground(selectedCream).
+				Bold(true)
+		}
+
+		return style.Render(text)
+	}
+
+	buttonLabel := "Voice Channel"
+	if m.isText {
+		buttonLabel = "Text Channel"
+	}
+
+	textStyle := inputStyle
+	if m.focused == 0 {
+		textStyle = textStyle.BorderForeground(selectedCream).
+			Foreground(selectedCream).
+			Bold(true)
+	}
+
+	button := renderButton(buttonLabel, 10, m.focused == 1)
+	idRow := lipgloss.JoinHorizontal(lipgloss.Top, "\nName: ", textStyle.Render(m.channelName.View()))
+
+	content := fmt.Sprintf("%s\n\n%s\n%s\n%s",
 		title,
 		idRow,
+		button,
 		lipgloss.NewStyle().Foreground(lipgloss.Color("#767676")).Render("Press Enter to join • Esc to close"),
 	)
 	return modalBoxStyle.Render(content)
@@ -243,13 +298,13 @@ func JoinServer(serverID string) {
 
 }
 
-func CreateChannel(serverID string, channelName string) {
-
+func CreateChannel(serverID string, channelName string, channelType string) {
 	var response any
 
 	payload := map[string]string{
 		"serverID": serverID,
 		"name":     channelName,
+		"type":     channelType,
 	}
 
 	token, err := app.LoadToken()
@@ -266,7 +321,7 @@ func CreateChannel(serverID string, channelName string) {
 	err = app.POST(
 		payload,
 		token,
-		url.String()+app.CreateChannelEndpoint,
+		url.String(),
 		&response,
 	)
 

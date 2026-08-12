@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	cream               = lipgloss.Color("#F5B978")
 	borderStyle         = lipgloss.NewStyle().Foreground(cream)
 	cursorStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("#1a1a1a")).Background(cream)
 	selectedBorderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffdea5"))
@@ -189,23 +188,16 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		key := msg.String()
 
 		if m.activeModal != nil {
-			switch key {
-			case "esc":
-				m.activeModal = nil
-				return m, nil
-			}
-			// fmt.Println("help!!")
-			nextModal, _, result := m.activeModal.Update(msg)
+			nextModal, cmd, result := m.activeModal.Update(msg)
 			m.activeModal = nextModal
 
 			if result != nil {
 				switch v := result.(type) {
 				case string:
-
 					_ = v
 				}
 			}
-			return m, nil
+			return m, cmd
 		}
 
 		switch key {
@@ -780,6 +772,7 @@ func GetChannels(serverID any) []app.Channel {
 	createChannelItem := app.Channel{
 		ID:   "Six Seven",
 		Name: "+ Create",
+		Type: "text",
 	}
 
 	channels := append([]app.Channel{createChannelItem}, realChannels...)
