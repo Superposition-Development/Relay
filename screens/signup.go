@@ -117,11 +117,11 @@ func (m SignupScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					"pfp":      "",
 				}
 				protocol := "https"
-				websocketProtocol := "wss"
+				websocketProtocol := "wss://"
 
 				if m.useHTTP {
 					protocol = "http"
-					websocketProtocol = "ws"
+					websocketProtocol = "ws://"
 				}
 
 				server := url.URL{
@@ -230,10 +230,10 @@ func (m SignupScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	protocol := "https"
+	protocol := "https://"
 
 	if m.useHTTP {
-		protocol = "http"
+		protocol = "http://"
 
 	}
 

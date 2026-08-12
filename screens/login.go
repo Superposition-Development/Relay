@@ -106,11 +106,11 @@ func (m LoginScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				}
 
 				protocol := "https"
-				websocketProtocol := "wss"
+				websocketProtocol := "wss://"
 
 				if m.isHttp {
 					protocol = "http"
-					websocketProtocol = "ws"
+					websocketProtocol = "ws://"
 				}
 
 				server := url.URL{
@@ -211,10 +211,10 @@ func (m LoginScreen) View() string {
 		Width(82).
 		Foreground(cream)
 
-	protocol := "https"
+	protocol := "https://"
 
 	if m.isHttp {
-		protocol = "http"
+		protocol = "http://"
 
 	}
 
