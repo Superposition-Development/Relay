@@ -48,11 +48,13 @@ var CurrentInteractionMode = Default
 var CurrentUserID = ""
 var Socket *websocket.Conn
 var CurrentServerID any
+var CurrentChannelID any
 var ServerListToDataMap = make(map[int]Server, 0)
 var ChannelListToDataMap = make(map[int]Channel, 0)
 var Servers = make([]Server, 0)
 var Channels = make([]Channel, 0)
 var Messages = make([]Message, 0)
+var GlobalCallControl *CallControl //= InstantiateCallControl()
 
 var ServerURL url.URL
 var WebsocketURL url.URL

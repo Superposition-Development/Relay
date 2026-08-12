@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,21 +104,32 @@ func GetConn() *websocket.Conn {
 }
 
 func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg map[string]any)) {
-	mu.Lock()
-	var err error
-	Socket, _, err = websocket.DefaultDialer.Dial(address, nil)
-	mu.Unlock()
+	formattedAddr := address
+	if !strings.HasPrefix(formattedAddr, "ws://") && !strings.HasPrefix(formattedAddr, "wss://") {
+		formattedAddr = "ws://" + formattedAddr
+	}
 
+	conn, resp, err := websocket.DefaultDialer.Dial(formattedAddr, nil)
 	if err != nil {
-		fmt.Printf("WebSocket error: %v\n", err)
+		if resp != nil {
+			fmt.Printf("WebSocket dial failed with status %s: %v\n", resp.Status, err)
+		} else {
+			fmt.Printf("WebSocket dial error: %v\n", err)
+		}
 		return
 	}
+
+	mu.Lock()
+	Socket = conn
+	mu.Unlock()
 
 	registerMessage := map[string]any{
 		"message": "register",
 		"authKey": jwtToken,
 	}
+
 	SendWebsocketJSON(registerMessage)
+	GlobalCallControl = InstantiateCallControl()
 
 	go func() {
 		defer func() {
@@ -127,13 +139,18 @@ func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg 
 				Socket = nil
 			}
 			mu.Unlock()
-			fmt.Println("Connection closed")
+			fmt.Println("WebSocket connection closed")
 		}()
 
 		for {
-			_, messageData, err := GetConn().ReadMessage()
+			c := GetConn()
+			if c == nil {
+				break
+			}
+
+			_, messageData, err := c.ReadMessage()
 			if err != nil {
-				fmt.Printf("WebSocket error or closed: %v\n", err)
+				fmt.Printf("WebSocket read error: %v\n", err)
 				break
 			}
 
@@ -176,9 +193,20 @@ type WebsocketMesssage struct {
 func ListenForWSMsg() tea.Cmd {
 	return func() tea.Msg {
 		msg := <-WSChan
+
+		msgType, ok := msg["type"].(string)
+		if !ok {
+			return nil
+		}
+
+		GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
+			Type: msgType,
+			Data: msg["data"],
+		})
+
 		return WebsocketMesssage{
-			Type: msg["type"].(string),
-			Data: msg["data"].(map[string]any),
+			Type: msgType,
+			Data: msg["data"],
 		}
 	}
 }
