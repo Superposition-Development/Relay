@@ -292,7 +292,7 @@ func JoinServer(serverID string) {
 	err = app.POST(
 		payload,
 		token,
-		url.String()+app.JoinServerEndpoint,
+		url.String(),
 		&response,
 	)
 
