@@ -11,11 +11,20 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/ebitengine/oto/v3"
 	"github.com/gen2brain/malgo"
-	"github.com/gorilla/websocket"
 	"github.com/hraban/opus"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
+)
+
+const (
+	sampleRate           = 48000
+	audioChannels        = 2
+	frameDurationMs      = 20
+	frameSize            = sampleRate * frameDurationMs / 1000
+	totalSamplesPerFrame = frameSize * audioChannels
+	pcmBytesPerFrame     = totalSamplesPerFrame * 2
+	maxAudioBufferSize   = 192000
 )
 
 type MicStream struct {
@@ -24,6 +33,21 @@ type MicStream struct {
 	outTrack *webrtc.TrackLocalStaticSample
 	stopChan chan struct{}
 	wg       sync.WaitGroup
+}
+
+type CallControl struct {
+	wsMu   sync.Mutex
+	callID string
+
+	pc          *webrtc.PeerConnection
+	audioEngine *AudioEngine
+	micStream   *MicStream
+	outTrack    *webrtc.TrackLocalStaticSample
+
+	pendingCandidates []webrtc.ICECandidateInit
+	remoteDescSet     bool
+
+	mu sync.Mutex
 }
 
 func NewMicStream(outTrack *webrtc.TrackLocalStaticSample) (*MicStream, error) {
@@ -40,39 +64,24 @@ func NewMicStream(outTrack *webrtc.TrackLocalStaticSample) (*MicStream, error) {
 }
 
 func (m *MicStream) Start() error {
-
-	const sampleRate = 48000
-	const channels = 2
-	const frameDurationMs = 20
-
-	const frameSize = sampleRate * frameDurationMs / 1000
-	const totalSamplesPerFrame = frameSize * channels
-	const pcmBytesPerFrame = totalSamplesPerFrame * 2
-
-	encoder, err := opus.NewEncoder(
-		sampleRate,
-		channels,
-		opus.Application(opus.AppVoIP),
-	)
+	encoder, err := opus.NewEncoder(sampleRate, audioChannels, opus.AppVoIP)
 	if err != nil {
 		return fmt.Errorf("failed to create opus encoder: %w", err)
 	}
 
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
 	deviceConfig.Capture.Format = malgo.FormatS16
-	deviceConfig.Capture.Channels = channels
+	deviceConfig.Capture.Channels = audioChannels
 	deviceConfig.SampleRate = sampleRate
 	deviceConfig.Alsa.NoMMap = 1
 
 	pcmChan := make(chan []byte, 64)
 
 	deviceCallbacks := malgo.DeviceCallbacks{
-		Data: func(pOutputSamples, pInputSamples []byte, frameCount uint32) {
-
+		Data: func(_, pInputSamples []byte, _ uint32) {
 			if len(pInputSamples) == 0 {
 				return
 			}
-
 			buf := make([]byte, len(pInputSamples))
 			copy(buf, pInputSamples)
 
@@ -83,28 +92,22 @@ func (m *MicStream) Start() error {
 		},
 	}
 
-	device, err := malgo.InitDevice(
-		m.ctx.Context,
-		deviceConfig,
-		deviceCallbacks,
-	)
+	device, err := malgo.InitDevice(m.ctx.Context, deviceConfig, deviceCallbacks)
 	if err != nil {
 		return fmt.Errorf("failed to init capture device: %w", err)
 	}
 
 	if err := device.Start(); err != nil {
+		device.Uninit()
 		return fmt.Errorf("failed to start capture device: %w", err)
 	}
-
 	m.device = device
 
 	m.wg.Add(1)
-
 	go func() {
 		defer m.wg.Done()
 
 		var pcmAccumulator []byte
-
 		int16Buf := make([]int16, totalSamplesPerFrame)
 		opusBuf := make([]byte, 1000)
 
@@ -112,7 +115,6 @@ func (m *MicStream) Start() error {
 			select {
 			case <-m.stopChan:
 				return
-
 			case chunk := <-pcmChan:
 				pcmAccumulator = append(pcmAccumulator, chunk...)
 
@@ -121,11 +123,7 @@ func (m *MicStream) Start() error {
 					pcmAccumulator = pcmAccumulator[pcmBytesPerFrame:]
 
 					for i := 0; i < totalSamplesPerFrame; i++ {
-						int16Buf[i] = int16(
-							binary.LittleEndian.Uint16(
-								frameBytes[i*2 : i*2+2],
-							),
-						)
+						int16Buf[i] = int16(binary.LittleEndian.Uint16(frameBytes[i*2 : i*2+2]))
 					}
 
 					n, err := encoder.Encode(int16Buf, opusBuf)
@@ -139,7 +137,7 @@ func (m *MicStream) Start() error {
 					if m.outTrack != nil {
 						_ = m.outTrack.WriteSample(media.Sample{
 							Data:     sampleData,
-							Duration: time.Duration(frameDurationMs) * time.Millisecond,
+							Duration: frameDurationMs * time.Millisecond,
 						})
 					}
 				}
@@ -151,7 +149,6 @@ func (m *MicStream) Start() error {
 }
 
 func (m *MicStream) Stop() {
-
 	select {
 	case <-m.stopChan:
 		return
@@ -183,16 +180,13 @@ type AudioBuffer struct {
 
 func NewAudioBuffer() *AudioBuffer {
 	b := &AudioBuffer{
-		buf: make([]byte, 0, 192000),
+		buf: make([]byte, 0, maxAudioBufferSize),
 	}
-
 	b.cond = sync.NewCond(&b.mu)
-
 	return b
 }
 
 func (b *AudioBuffer) Read(p []byte) (int, error) {
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -206,12 +200,10 @@ func (b *AudioBuffer) Read(p []byte) (int, error) {
 
 	n := copy(p, b.buf)
 	b.buf = b.buf[n:]
-
 	return n, nil
 }
 
 func (b *AudioBuffer) Write(p []byte) {
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -220,11 +212,8 @@ func (b *AudioBuffer) Write(p []byte) {
 	}
 
 	b.buf = append(b.buf, p...)
-
-	const maxBufferSize = 192000
-
-	if len(b.buf) > maxBufferSize {
-		excess := len(b.buf) - maxBufferSize
+	if len(b.buf) > maxAudioBufferSize {
+		excess := len(b.buf) - maxAudioBufferSize
 		b.buf = b.buf[excess:]
 	}
 
@@ -232,7 +221,6 @@ func (b *AudioBuffer) Write(p []byte) {
 }
 
 func (b *AudioBuffer) Close() {
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -251,15 +239,10 @@ type AudioEngine struct {
 }
 
 func NewAudioEngine() (*AudioEngine, error) {
-
-	const sampleRate = 48000
-	const channelCount = 2
-	const format = oto.FormatSignedInt16LE
-
 	op := &oto.NewContextOptions{
 		SampleRate:   sampleRate,
-		ChannelCount: channelCount,
-		Format:       format,
+		ChannelCount: audioChannels,
+		Format:       oto.FormatSignedInt16LE,
 	}
 
 	otoCtx, ready, err := oto.NewContext(op)
@@ -270,12 +253,9 @@ func NewAudioEngine() (*AudioEngine, error) {
 	<-ready
 
 	audioReader := NewAudioBuffer()
-
 	player := otoCtx.NewPlayer(audioReader)
 
-	go func() {
-		player.Play()
-	}()
+	go player.Play()
 
 	return &AudioEngine{
 		otoCtx:      otoCtx,
@@ -285,60 +265,44 @@ func NewAudioEngine() (*AudioEngine, error) {
 }
 
 func (a *AudioEngine) HandleRemoteTrack(track *webrtc.TrackRemote) {
-
-	const sampleRate = 48000
-	const channels = 2
-
-	decoder, err := opus.NewDecoder(sampleRate, channels)
+	decoder, err := opus.NewDecoder(sampleRate, audioChannels)
 	if err != nil {
+
 		return
 	}
 
-	pcmInt16Buf := make([]int16, 5760*channels)
+	pcmInt16Buf := make([]int16, 5760*audioChannels)
 	pcmByteBuf := make([]byte, len(pcmInt16Buf)*2)
-
 	rtpBuf := make([]byte, 2000)
-
 	packetCount := 0
 
 	for {
 		n, _, err := track.Read(rtpBuf)
 		if err != nil {
-			if err == io.EOF {
-				return
+			if err != io.EOF {
+
 			}
 			return
 		}
 
 		packet := &rtp.Packet{}
-		if err := packet.Unmarshal(rtpBuf[:n]); err != nil {
+		if err := packet.Unmarshal(rtpBuf[:n]); err != nil || len(packet.Payload) == 0 {
 			continue
 		}
 
 		packetCount++
 		if packetCount <= 10 {
-			fmt.Printf("RTP packet %d: payload=%d bytes\n", packetCount, len(packet.Payload))
-		}
 
-		if len(packet.Payload) == 0 {
-			continue
 		}
 
 		samplesDecoded, err := decoder.Decode(packet.Payload, pcmInt16Buf)
-		if err != nil {
+		if err != nil || samplesDecoded == 0 {
 			continue
 		}
 
-		if samplesDecoded == 0 {
-			continue
-		}
-
-		totalSamples := samplesDecoded * channels
+		totalSamples := samplesDecoded * audioChannels
 		for i := 0; i < totalSamples; i++ {
-			binary.LittleEndian.PutUint16(
-				pcmByteBuf[i*2:i*2+2],
-				uint16(pcmInt16Buf[i]),
-			)
+			binary.LittleEndian.PutUint16(pcmByteBuf[i*2:i*2+2], uint16(pcmInt16Buf[i]))
 		}
 
 		if a.audioReader != nil {
@@ -348,101 +312,115 @@ func (a *AudioEngine) HandleRemoteTrack(track *webrtc.TrackRemote) {
 }
 
 func (a *AudioEngine) Close() {
-
 	if a.audioReader != nil {
 		a.audioReader.Close()
 	}
-
+	if a.player != nil {
+		a.player = nil
+	}
 	if a.otoCtx != nil {
 		_ = a.otoCtx.Suspend()
 	}
 }
 
-type CallControl struct {
-	wsMu   *sync.Mutex
-	ws     *websocket.Conn
-	callID string
-
-	pc *webrtc.PeerConnection
-
-	audioEngine       *AudioEngine
-	micStream         *MicStream
-	outTrack          *webrtc.TrackLocalStaticSample
-	pendingCandidates []webrtc.ICECandidateInit
-	remoteDescSet     bool
-}
-
 func InstantiateCallControl(callID any) *CallControl {
-
 	return &CallControl{
-		wsMu:   &mu,
-		ws:     GetConn(),
 		callID: fmt.Sprintf("%v", callID),
 	}
 }
 
-func (m *CallControl) sendWSMessage(Type string, Content map[string]interface{}) error {
+func (m *CallControl) sendWSMessage(messageType string, content map[string]interface{}) error {
+	m.wsMu.Lock()
+	defer m.wsMu.Unlock()
 
 	authKey, err := LoadToken()
+	if err != nil {
+		return err
+	}
 
 	payload := map[string]interface{}{
 		"authKey": authKey,
-		"message": Type,
+		"message": messageType,
 		"callID":  m.callID,
 	}
 
-	for k, v := range Content {
+	for k, v := range content {
 		payload[k] = v
 	}
 
 	SendWebsocketJSON(payload)
-	return err
+	return nil
 }
 
 func (m *CallControl) StartCallRoutine() tea.Cmd {
 	return func() tea.Msg {
+		if GetConn() == nil {
 
-		var err error
-
-		if m.ws == nil {
-			fmt.Println("no websocket")
 			return nil
 		}
 
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		var err error
 		m.audioEngine, err = NewAudioEngine()
 		if err != nil {
-			fmt.Println(err)
+
 			return nil
 		}
 
 		config := webrtc.Configuration{
 			ICEServers: []webrtc.ICEServer{
-				{URLs: []string{"stun:stun.l.google.com:19302"}},
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+				{
+					URLs: []string{
+						"turn:global.relay.metered.ca:80",
+						"turn:global.relay.metered.ca:443",
+						"turn:global.relay.metered.ca:443?transport=tcp",
+					},
+					Username:   "a072cb146b471d7876e641dc",
+					Credential: "AbV/kjuHbgOurcxl",
+				},
 			},
 		}
 
 		m.pc, err = webrtc.NewPeerConnection(config)
 		if err != nil {
-			fmt.Println(err)
+
 			return nil
 		}
 
-		m.pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		// m.pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
 
-			if m.audioEngine != nil {
-				go m.audioEngine.HandleRemoteTrack(track)
+		// })
+
+		// m.pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+
+		// })
+
+		m.pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+			m.mu.Lock()
+			engine := m.audioEngine
+			m.mu.Unlock()
+
+			if engine != nil {
+				go engine.HandleRemoteTrack(track)
 			}
 		})
 
 		m.pc.OnICECandidate(func(c *webrtc.ICECandidate) {
-
 			if c == nil {
+
 				return
 			}
 
-			_ = m.sendWSMessage("candidate", map[string]interface{}{
+			if err := m.sendWSMessage("candidate", map[string]interface{}{
 				"candidate": c.ToJSON(),
-			})
+			}); err != nil {
+
+			}
 		})
 
 		m.outTrack, err = webrtc.NewTrackLocalStaticSample(
@@ -451,100 +429,144 @@ func (m *CallControl) StartCallRoutine() tea.Cmd {
 			"pion",
 		)
 		if err != nil {
-			fmt.Println(err)
+
 			return nil
 		}
 
-		if _, err = m.pc.AddTrack(m.outTrack); err != nil {
-			fmt.Println(err)
+		if _, err := m.pc.AddTrack(m.outTrack); err != nil {
+
 			return nil
 		}
 
 		m.micStream, err = NewMicStream(m.outTrack)
 		if err != nil {
-			fmt.Println(err)
+
 			return nil
 		}
 
 		if err := m.micStream.Start(); err != nil {
-			fmt.Println(err)
+
 			return nil
 		}
 
-		_ = m.sendWSMessage("joinCall", nil)
+		if err := m.sendWSMessage("joinCall", nil); err != nil {
+
+		}
 
 		return nil
 	}
 }
 
 func (m *CallControl) HandleSignalMessage(msg WebsocketMesssage) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.pc == nil {
+		return
+	}
+
 	switch msg.Type {
-
 	case "offer":
-		var offerSDP string
-		switch v := msg.Data.(type) {
-		case string:
-			var offerMap map[string]interface{}
-			if err := json.Unmarshal([]byte(v), &offerMap); err == nil {
-				offerSDP, _ = offerMap["sdp"].(string)
-			}
-		case map[string]interface{}:
-			offerSDP, _ = v["sdp"].(string)
-		}
+		m.handleOffer(msg)
+	case "candidate":
+		m.handleCandidate(msg)
+	case "answer":
 
-		if offerSDP == "" {
+	}
+}
+
+func (m *CallControl) handleOffer(msg WebsocketMesssage) {
+	var offerSDP string
+
+	switch v := msg.Data.(type) {
+	case string:
+		var offerMap map[string]interface{}
+		if err := json.Unmarshal([]byte(v), &offerMap); err != nil {
 			return
 		}
+		offerSDP, _ = offerMap["sdp"].(string)
+	case map[string]interface{}:
+		offerSDP, _ = v["sdp"].(string)
+	default:
+		return
+	}
 
-		offer := webrtc.SessionDescription{
-			Type: webrtc.SDPTypeOffer,
-			SDP:  offerSDP,
+	if offerSDP == "" {
+		return
+	}
+
+	offer := webrtc.SessionDescription{
+		Type: webrtc.SDPTypeOffer,
+		SDP:  offerSDP,
+	}
+
+	if err := m.pc.SetRemoteDescription(offer); err != nil {
+		return
+	}
+
+	m.remoteDescSet = true
+
+	for _, candidate := range m.pendingCandidates {
+		if err := m.pc.AddICECandidate(candidate); err != nil {
+
 		}
+	}
+	m.pendingCandidates = nil
 
-		if err := m.pc.SetRemoteDescription(offer); err != nil {
+	answer, err := m.pc.CreateAnswer(nil)
+	if err != nil {
+
+		return
+	}
+
+	if err := m.pc.SetLocalDescription(answer); err != nil {
+
+		return
+	}
+
+	if err := m.sendWSMessage("answer", map[string]interface{}{
+		"answer": map[string]interface{}{
+			"type": "answer",
+			"sdp":  answer.SDP,
+		},
+	}); err != nil {
+
+	}
+}
+
+func (m *CallControl) handleCandidate(msg WebsocketMesssage) {
+	var init webrtc.ICECandidateInit
+
+	switch v := msg.Data.(type) {
+	case string:
+		if err := json.Unmarshal([]byte(v), &init); err != nil {
 			return
 		}
-		m.remoteDescSet = true
-
-		for _, cand := range m.pendingCandidates {
-			_ = m.pc.AddICECandidate(cand)
-		}
-		m.pendingCandidates = nil
-
-		answer, err := m.pc.CreateAnswer(nil)
+	case map[string]interface{}:
+		raw, err := json.Marshal(v)
 		if err != nil {
 			return
 		}
-
-		if err := m.pc.SetLocalDescription(answer); err != nil {
+		if err := json.Unmarshal(raw, &init); err != nil {
 			return
 		}
+	default:
+		return
+	}
 
-		_ = m.sendWSMessage("answer", map[string]interface{}{
-			"answer": map[string]interface{}{
-				"type": "answer",
-				"sdp":  answer.SDP,
-			},
-		})
+	if !m.remoteDescSet {
+		m.pendingCandidates = append(m.pendingCandidates, init)
+		return
+	}
 
-	case "candidate":
-		if candStr, ok := msg.Data.(string); ok && candStr != "" {
-			var init webrtc.ICECandidateInit
-			if err := json.Unmarshal([]byte(candStr), &init); err != nil {
-				return
-			}
+	if err := m.pc.AddICECandidate(init); err != nil {
 
-			if !m.remoteDescSet {
-				m.pendingCandidates = append(m.pendingCandidates, init)
-				return
-			}
-
-			_ = m.pc.AddICECandidate(init)
-		}
 	}
 }
 
 func (m *CallControl) Close() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if m.micStream != nil {
 		m.micStream.Stop()
@@ -552,8 +574,9 @@ func (m *CallControl) Close() {
 	}
 
 	if m.audioEngine != nil {
-		m.audioEngine.Close()
+		aEngine := m.audioEngine
 		m.audioEngine = nil
+		aEngine.Close()
 	}
 
 	if m.pc != nil {
