@@ -103,18 +103,18 @@ func GetConn() *websocket.Conn {
 	return Socket
 }
 
-func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg map[string]any)) {
+func RegisterWebsocket(address string, jwtToken string) {
 	formattedAddr := address
-	if !strings.HasPrefix(formattedAddr, "ws://") && !strings.HasPrefix(formattedAddr, "wss://") {
+
+	if !strings.HasPrefix(formattedAddr, "ws://") &&
+		!strings.HasPrefix(formattedAddr, "wss://") {
 		formattedAddr = "ws://" + formattedAddr
 	}
 
 	conn, resp, err := websocket.DefaultDialer.Dial(formattedAddr, nil)
 	if err != nil {
 		if resp != nil {
-			fmt.Printf("WebSocket dial failed with status %s: %v\n", resp.Status, err)
 		} else {
-			fmt.Printf("WebSocket dial error: %v\n", err)
 		}
 		return
 	}
@@ -129,40 +129,40 @@ func RegisterWebsocket(address string, jwtToken string, messageHandler func(msg 
 	}
 
 	SendWebsocketJSON(registerMessage)
-	// GlobalCallControl = InstantiateCallControl()
 
 	go func() {
 		defer func() {
 			mu.Lock()
-			if Socket != nil {
-				Socket.Close()
+
+			if Socket == conn {
 				Socket = nil
 			}
+
 			mu.Unlock()
-			fmt.Println("WebSocket connection closed")
+
+			_ = conn.Close()
+
 		}()
 
 		for {
-			c := GetConn()
-			if c == nil {
-				break
-			}
-
-			_, messageData, err := c.ReadMessage()
+			_, messageData, err := conn.ReadMessage()
 			if err != nil {
-				fmt.Printf("WebSocket read error: %v\n", err)
-				break
+
+				return
 			}
 
 			var parsed map[string]any
+
 			if err := json.Unmarshal(messageData, &parsed); err != nil {
-				fmt.Printf("Failed to parse incoming JSON: %v\n", err)
 				continue
 			}
 
-			if messageHandler != nil {
-				messageHandler(parsed)
+			select {
+			case WSChan <- parsed:
+			default:
+
 			}
+
 		}
 	}()
 }
@@ -172,13 +172,12 @@ func SendWebsocketJSON(message any) {
 	defer mu.Unlock()
 
 	if Socket == nil {
-		fmt.Println("Websocket offline")
 		return
 	}
 
 	err := Socket.WriteJSON(message)
 	if err != nil {
-		fmt.Printf("Failed to send message: %v\n", err)
+
 	}
 }
 

@@ -137,9 +137,7 @@ func (m SignupScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					app.SaveToken(data.RelayJWT)
 					app.CurrentUserID = m.userID.Value()
 
-					app.RegisterWebsocket(websocketProtocol+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT, func(msg map[string]any) {
-						app.WSChan <- msg
-					})
+					app.RegisterWebsocket(websocketProtocol+m.serverAdress+app.WebsocketEndpoint, data.RelayJWT)
 					app.ServerURL.Host = m.serverAdress
 					app.ServerURL.Scheme = protocol
 					app.WebsocketURL.Host = m.serverAdress
