@@ -35,6 +35,19 @@ type MicStream struct {
 	wg       sync.WaitGroup
 }
 
+type AudioBuffer struct {
+	buf    []byte
+	mu     sync.Mutex
+	cond   *sync.Cond
+	closed bool
+}
+
+type AudioEngine struct {
+	otoCtx      *oto.Context
+	player      *oto.Player
+	audioReader *AudioBuffer
+}
+
 type CallControl struct {
 	wsMu   sync.Mutex
 	callID string
@@ -109,7 +122,7 @@ func (m *MicStream) Start() error {
 
 		var pcmAccumulator []byte
 		int16Buf := make([]int16, totalSamplesPerFrame)
-		opusBuf := make([]byte, 1000)
+		opusBuf := make([]byte, 4000)
 
 		for {
 			select {
@@ -135,10 +148,12 @@ func (m *MicStream) Start() error {
 					copy(sampleData, opusBuf[:n])
 
 					if m.outTrack != nil {
-						_ = m.outTrack.WriteSample(media.Sample{
+						if err := m.outTrack.WriteSample(media.Sample{
 							Data:     sampleData,
 							Duration: frameDurationMs * time.Millisecond,
-						})
+						}); err != nil {
+
+						}
 					}
 				}
 			}
@@ -165,17 +180,9 @@ func (m *MicStream) Stop() {
 	m.wg.Wait()
 
 	if m.ctx != nil {
-		_ = m.ctx.Uninit()
 		m.ctx.Free()
 		m.ctx = nil
 	}
-}
-
-type AudioBuffer struct {
-	buf    []byte
-	mu     sync.Mutex
-	cond   *sync.Cond
-	closed bool
 }
 
 func NewAudioBuffer() *AudioBuffer {
@@ -232,12 +239,6 @@ func (b *AudioBuffer) Close() {
 	b.cond.Broadcast()
 }
 
-type AudioEngine struct {
-	otoCtx      *oto.Context
-	player      *oto.Player
-	audioReader *AudioBuffer
-}
-
 func NewAudioEngine() (*AudioEngine, error) {
 	op := &oto.NewContextOptions{
 		SampleRate:   sampleRate,
@@ -254,7 +255,6 @@ func NewAudioEngine() (*AudioEngine, error) {
 
 	audioReader := NewAudioBuffer()
 	player := otoCtx.NewPlayer(audioReader)
-
 	go player.Play()
 
 	return &AudioEngine{
@@ -267,36 +267,36 @@ func NewAudioEngine() (*AudioEngine, error) {
 func (a *AudioEngine) HandleRemoteTrack(track *webrtc.TrackRemote) {
 	decoder, err := opus.NewDecoder(sampleRate, audioChannels)
 	if err != nil {
-
 		return
 	}
 
 	pcmInt16Buf := make([]int16, 5760*audioChannels)
 	pcmByteBuf := make([]byte, len(pcmInt16Buf)*2)
 	rtpBuf := make([]byte, 2000)
-	packetCount := 0
 
 	for {
 		n, _, err := track.Read(rtpBuf)
 		if err != nil {
 			if err != io.EOF {
-
 			}
 			return
 		}
 
 		packet := &rtp.Packet{}
-		if err := packet.Unmarshal(rtpBuf[:n]); err != nil || len(packet.Payload) == 0 {
+		if err := packet.Unmarshal(rtpBuf[:n]); err != nil {
 			continue
 		}
 
-		packetCount++
-		if packetCount <= 10 {
-
+		if len(packet.Payload) == 0 {
+			continue
 		}
 
 		samplesDecoded, err := decoder.Decode(packet.Payload, pcmInt16Buf)
-		if err != nil || samplesDecoded == 0 {
+		if err != nil {
+			continue
+		}
+
+		if samplesDecoded == 0 {
 			continue
 		}
 
@@ -315,9 +315,11 @@ func (a *AudioEngine) Close() {
 	if a.audioReader != nil {
 		a.audioReader.Close()
 	}
+
 	if a.player != nil {
 		a.player = nil
 	}
+
 	if a.otoCtx != nil {
 		_ = a.otoCtx.Suspend()
 	}
@@ -355,7 +357,6 @@ func (m *CallControl) sendWSMessage(messageType string, content map[string]inter
 func (m *CallControl) StartCallRoutine() tea.Cmd {
 	return func() tea.Msg {
 		if GetConn() == nil {
-
 			return nil
 		}
 
@@ -365,15 +366,11 @@ func (m *CallControl) StartCallRoutine() tea.Cmd {
 		var err error
 		m.audioEngine, err = NewAudioEngine()
 		if err != nil {
-
 			return nil
 		}
 
 		config := webrtc.Configuration{
 			ICEServers: []webrtc.ICEServer{
-				{
-					URLs: []string{"stun:stun.l.google.com:19302"},
-				},
 				{
 					URLs: []string{
 						"turn:global.relay.metered.ca:80",
@@ -384,23 +381,32 @@ func (m *CallControl) StartCallRoutine() tea.Cmd {
 					Credential: "AbV/kjuHbgOurcxl",
 				},
 			},
+			ICETransportPolicy: webrtc.ICETransportPolicyRelay,
 		}
 
 		m.pc, err = webrtc.NewPeerConnection(config)
 		if err != nil {
-
 			return nil
 		}
 
-		// m.pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		m.pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		})
 
-		// })
+		m.pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		})
 
-		// m.pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		m.pc.OnICECandidate(func(c *webrtc.ICECandidate) {
+			if c == nil {
+				return
+			}
 
-		// })
+			if err := m.sendWSMessage("candidate", map[string]interface{}{
+				"candidate": c.ToJSON(),
+			}); err != nil {
+			}
+		})
 
-		m.pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		m.pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 			m.mu.Lock()
 			engine := m.audioEngine
 			m.mu.Unlock()
@@ -410,47 +416,29 @@ func (m *CallControl) StartCallRoutine() tea.Cmd {
 			}
 		})
 
-		m.pc.OnICECandidate(func(c *webrtc.ICECandidate) {
-			if c == nil {
-
-				return
-			}
-
-			if err := m.sendWSMessage("candidate", map[string]interface{}{
-				"candidate": c.ToJSON(),
-			}); err != nil {
-
-			}
-		})
-
 		m.outTrack, err = webrtc.NewTrackLocalStaticSample(
 			webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
 			"audio",
 			"pion",
 		)
 		if err != nil {
-
 			return nil
 		}
 
 		if _, err := m.pc.AddTrack(m.outTrack); err != nil {
-
 			return nil
 		}
 
 		m.micStream, err = NewMicStream(m.outTrack)
 		if err != nil {
-
 			return nil
 		}
 
 		if err := m.micStream.Start(); err != nil {
-
 			return nil
 		}
 
 		if err := m.sendWSMessage("joinCall", nil); err != nil {
-
 		}
 
 		return nil
@@ -508,7 +496,6 @@ func (m *CallControl) handleOffer(msg WebsocketMesssage) {
 
 	for _, candidate := range m.pendingCandidates {
 		if err := m.pc.AddICECandidate(candidate); err != nil {
-
 		}
 	}
 	m.pendingCandidates = nil
@@ -522,14 +509,23 @@ func (m *CallControl) handleOffer(msg WebsocketMesssage) {
 		return
 	}
 
-	if err := m.sendWSMessage("answer", map[string]interface{}{
-		"answer": map[string]interface{}{
-			"type": "answer",
-			"sdp":  answer.SDP,
-		},
-	}); err != nil {
+	go func(pc *webrtc.PeerConnection, callID string) {
+		gatherComplete := webrtc.GatheringCompletePromise(pc)
+		<-gatherComplete
 
-	}
+		localDescription := pc.LocalDescription()
+		if localDescription == nil {
+			return
+		}
+
+		if err := m.sendWSMessage("answer", map[string]interface{}{
+			"answer": map[string]interface{}{
+				"type": localDescription.Type.String(),
+				"sdp":  localDescription.SDP,
+			},
+		}); err != nil {
+		}
+	}(m.pc, m.callID)
 }
 
 func (m *CallControl) handleAnswer(msg WebsocketMesssage) {
@@ -538,9 +534,10 @@ func (m *CallControl) handleAnswer(msg WebsocketMesssage) {
 	switch v := msg.Data.(type) {
 	case string:
 		var answerMap map[string]interface{}
-		if err := json.Unmarshal([]byte(v), &answerMap); err == nil {
-			answerSDP, _ = answerMap["sdp"].(string)
+		if err := json.Unmarshal([]byte(v), &answerMap); err != nil {
+			return
 		}
+		answerSDP, _ = answerMap["sdp"].(string)
 	case map[string]interface{}:
 		answerSDP, _ = v["sdp"].(string)
 	}
@@ -560,7 +557,8 @@ func (m *CallControl) handleAnswer(msg WebsocketMesssage) {
 
 	m.remoteDescSet = true
 	for _, candidate := range m.pendingCandidates {
-		_ = m.pc.AddICECandidate(candidate)
+		if err := m.pc.AddICECandidate(candidate); err != nil {
+		}
 	}
 	m.pendingCandidates = nil
 }
@@ -591,7 +589,6 @@ func (m *CallControl) handleCandidate(msg WebsocketMesssage) {
 	}
 
 	if err := m.pc.AddICECandidate(init); err != nil {
-
 	}
 }
 
@@ -605,9 +602,9 @@ func (m *CallControl) Close() {
 	}
 
 	if m.audioEngine != nil {
-		aEngine := m.audioEngine
+		engine := m.audioEngine
 		m.audioEngine = nil
-		aEngine.Close()
+		engine.Close()
 	}
 
 	if m.pc != nil {
