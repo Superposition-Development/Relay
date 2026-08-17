@@ -416,10 +416,14 @@ func (m *CallControl) StartCallRoutine() tea.Cmd {
 			}
 		})
 
+		//TODO: move this to the server side
+		uniqueTrackID := fmt.Sprintf("%s-%s", CurrentUserID, m.callID)
+		streamID := fmt.Sprintf("stream-%s", CurrentUserID)
+
 		m.outTrack, err = webrtc.NewTrackLocalStaticSample(
 			webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
-			fmt.Sprintf("audio-%s", m.callID),
-			"relay-stream",
+			uniqueTrackID,
+			streamID,
 		)
 		if err != nil {
 			return nil
