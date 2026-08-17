@@ -12,7 +12,6 @@ import (
 	"github.com/ebitengine/oto/v3"
 	"github.com/gen2brain/malgo"
 	"github.com/hraban/opus"
-	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
 )
@@ -272,31 +271,21 @@ func (a *AudioEngine) HandleRemoteTrack(track *webrtc.TrackRemote) {
 
 	pcmInt16Buf := make([]int16, 5760*audioChannels)
 	pcmByteBuf := make([]byte, len(pcmInt16Buf)*2)
-	rtpBuf := make([]byte, 2000)
 
 	for {
-		n, _, err := track.Read(rtpBuf)
-		if err != nil {
-			if err != io.EOF {
+		rtpPacket, _, readErr := track.ReadRTP()
+		if readErr != nil {
+			if readErr != io.EOF {
 			}
 			return
 		}
 
-		packet := &rtp.Packet{}
-		if err := packet.Unmarshal(rtpBuf[:n]); err != nil {
+		if len(rtpPacket.Payload) == 0 {
 			continue
 		}
 
-		if len(packet.Payload) == 0 {
-			continue
-		}
-
-		samplesDecoded, err := decoder.Decode(packet.Payload, pcmInt16Buf)
-		if err != nil {
-			continue
-		}
-
-		if samplesDecoded == 0 {
+		samplesDecoded, err := decoder.Decode(rtpPacket.Payload, pcmInt16Buf)
+		if err != nil || samplesDecoded == 0 {
 			continue
 		}
 
