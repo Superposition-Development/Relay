@@ -471,7 +471,7 @@ func (m *CallControl) HandleSignalMessage(msg WebsocketMesssage) {
 	case "candidate":
 		m.handleCandidate(msg)
 	case "answer":
-
+		m.handleAnswer(msg)
 	}
 }
 
@@ -515,12 +515,10 @@ func (m *CallControl) handleOffer(msg WebsocketMesssage) {
 
 	answer, err := m.pc.CreateAnswer(nil)
 	if err != nil {
-
 		return
 	}
 
 	if err := m.pc.SetLocalDescription(answer); err != nil {
-
 		return
 	}
 
@@ -532,6 +530,39 @@ func (m *CallControl) handleOffer(msg WebsocketMesssage) {
 	}); err != nil {
 
 	}
+}
+
+func (m *CallControl) handleAnswer(msg WebsocketMesssage) {
+	var answerSDP string
+
+	switch v := msg.Data.(type) {
+	case string:
+		var answerMap map[string]interface{}
+		if err := json.Unmarshal([]byte(v), &answerMap); err == nil {
+			answerSDP, _ = answerMap["sdp"].(string)
+		}
+	case map[string]interface{}:
+		answerSDP, _ = v["sdp"].(string)
+	}
+
+	if answerSDP == "" {
+		return
+	}
+
+	answer := webrtc.SessionDescription{
+		Type: webrtc.SDPTypeAnswer,
+		SDP:  answerSDP,
+	}
+
+	if err := m.pc.SetRemoteDescription(answer); err != nil {
+		return
+	}
+
+	m.remoteDescSet = true
+	for _, candidate := range m.pendingCandidates {
+		_ = m.pc.AddICECandidate(candidate)
+	}
+	m.pendingCandidates = nil
 }
 
 func (m *CallControl) handleCandidate(msg WebsocketMesssage) {
