@@ -189,7 +189,12 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 		if m.activeModal != nil {
 			nextModal, cmd, result := m.activeModal.Update(msg)
-			m.activeModal = nextModal
+
+			if nextModal == nil {
+				m.activeModal = nil
+			} else {
+				m.activeModal = nextModal
+			}
 
 			if result != nil {
 				switch v := result.(type) {
@@ -277,7 +282,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			if m.focusedPanel == channelMenu && len(app.Channels) > 0 {
 				if m.selectedChannelIndex == 0 {
 					m.activeModal = NewCreateChannelModal()
-					m.modalType = joinServerModal
+					m.modalType = createChannelModal
 
 					return m, nil
 				}
@@ -433,13 +438,22 @@ func (m *ChatScreen) View() string {
 	},
 		channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
 
+	chatTitle := ""
+
+	if m.activeChannelIndex >= 0 {
+		if channel, ok := app.ChannelListToDataMap[m.activeChannelIndex]; ok {
+			chatTitle = channel.Name
+		}
+	}
+
 	chat := chatBox(
 		chatWidth,
 		panelHeight,
 		1,
-		app.ChannelListToDataMap[m.activeChannelIndex].Name,
+		chatTitle,
 		app.Messages,
-		m)
+		m,
+	)
 	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels, chat)
 
 	sepRunes := []rune(strings.Repeat("─", m.width-2))

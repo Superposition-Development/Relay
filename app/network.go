@@ -198,10 +198,12 @@ func ListenForWSMsg() tea.Cmd {
 			return nil
 		}
 
-		GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
-			Type: msgType,
-			Data: msg["data"],
-		})
+		if GlobalCallControl != nil {
+			GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
+				Type: msgType,
+				Data: msg["data"],
+			})
+		}
 
 		return WebsocketMesssage{
 			Type: msgType,
