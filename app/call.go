@@ -418,8 +418,8 @@ func (m *CallControl) StartCallRoutine() tea.Cmd {
 
 		m.outTrack, err = webrtc.NewTrackLocalStaticSample(
 			webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
-			"audio",
-			"pion",
+			fmt.Sprintf("audio-%s", m.callID),
+			"relay-stream",
 		)
 		if err != nil {
 			return nil
@@ -430,12 +430,8 @@ func (m *CallControl) StartCallRoutine() tea.Cmd {
 		}
 
 		m.micStream, err = NewMicStream(m.outTrack)
-		if err != nil {
-			return nil
-		}
-
-		if err := m.micStream.Start(); err != nil {
-			return nil
+		if err == nil {
+			_ = m.micStream.Start()
 		}
 
 		if err := m.sendWSMessage("joinCall", nil); err != nil {
@@ -481,6 +477,19 @@ func (m *CallControl) handleOffer(msg WebsocketMesssage) {
 
 	if offerSDP == "" {
 		return
+	}
+
+	if m.outTrack != nil {
+		alreadyAdded := false
+		for _, sender := range m.pc.GetSenders() {
+			if sender.Track() == m.outTrack {
+				alreadyAdded = true
+				break
+			}
+		}
+		if !alreadyAdded {
+			_, _ = m.pc.AddTrack(m.outTrack)
+		}
 	}
 
 	offer := webrtc.SessionDescription{
