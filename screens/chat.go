@@ -122,10 +122,12 @@ func calculateTotalMessageLines(messages []app.Message, innerWidth int) int {
 }
 
 func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
+	// fmt.Println(msg)
 	switch msg := msg.(type) {
 	case app.WebsocketMesssage:
 		switch msg.Type {
 		case "recieveMessage":
+			// fmt.Print("i am scared")
 			if m.activeServerIndex < 0 || m.activeChannelIndex < 0 {
 				return m, nil
 			}
@@ -292,10 +294,10 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				serverID := app.CurrentServerID
 				channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
 
-				if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
-					app.GlobalCallControl = app.InstantiateCallControl(channelID)
-					return m, app.GlobalCallControl.StartCallRoutine()
-				}
+				// if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
+				// 	app.GlobalCallControl = app.InstantiateCallControl(channelID)
+				// 	return m, app.GlobalCallControl.StartCallRoutine()
+				// }
 
 				app.Messages = app.ReverseMessages(GetMessages(
 					serverID,

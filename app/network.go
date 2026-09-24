@@ -147,25 +147,81 @@ func RegisterWebsocket(address string, jwtToken string) {
 		for {
 			_, messageData, err := conn.ReadMessage()
 			if err != nil {
-
+				fmt.Printf("[WS] Read error: %v\n", err)
 				return
 			}
+
+			// fmt.Printf("[WS] RECEIVED RAW: %s\n", string(messageData))
 
 			var parsed map[string]any
 
 			if err := json.Unmarshal(messageData, &parsed); err != nil {
+				fmt.Printf("[WS] JSON decode error: %v\n", err)
 				continue
 			}
 
+			// fmt.Printf("[WS] RECEIVED TYPE: %v\n", parsed["message"])
+
+			// if GlobalCallControl != nil {
+			// 	GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
+			// 		Type: fmt.Sprintf("%v", parsed["type"]),
+			// 		Data: parsed["data"],
+			// 	})
+			// }
+
 			select {
 			case WSChan <- parsed:
+				// fmt.Printf("[WS] Queued signaling message: %v\n", parsed["message"])
 			default:
-
+				fmt.Printf("[WS] WSChan FULL - DROPPED: %v\n", parsed["message"])
 			}
-
 		}
 	}()
 }
+
+// func HandleWebsocketMessage(msg map[string]any) tea.Msg {
+// 	// msgType, _ := msg["type"].(string)
+// 	// if msgType != "recieveMessage" {
+// 	// 	return nil
+// 	// }
+
+// 	// dataMap, ok := msg["data"].(map[string]any)
+// 	// if !ok {
+// 	// 	return nil
+// 	// }
+
+// 	// name, _ := dataMap["name"].(string)
+// 	// if name == "" {
+// 	// 	name, _ = dataMap["name"].(string)
+// 	// }
+
+// 	// content, _ := dataMap["content"].(string)
+// 	// serverID := fmt.Sprintf("%v", dataMap["serverID"])
+// 	// channelID := fmt.Sprintf("%v", dataMap["channelID"])
+
+// 	// var msgID int64
+// 	// if idFloat, ok := dataMap["id"].(float64); ok {
+// 	// 	msgID = int64(idFloat)
+// 	// }
+
+// 	// var timestamp int64
+// 	// if tsFloat, ok := dataMap["timestamp"].(float64); ok {
+// 	// 	timestamp = int64(tsFloat)
+// 	// }
+
+// 	// newMessage := Message{
+// 	// 	ID:        msgID,
+// 	// 	Username:  name,
+// 	// 	Content:   content,
+// 	// 	Timestamp: timestamp,
+// 	// }
+
+// 	// return WebsocketMsg{
+// 	// 	ServerID:  serverID,
+// 	// 	ChannelID: channelID,
+// 	// 	Message:   newMessage,
+// 	// }
+// }
 
 func SendWebsocketJSON(message any) {
 	mu.Lock()
@@ -193,17 +249,20 @@ func ListenForWSMsg() tea.Cmd {
 	return func() tea.Msg {
 		msg := <-WSChan
 
-		msgType, ok := msg["type"].(string)
+		msgType, ok := msg["message"].(string)
 		if !ok {
+			// fmt.Println(msg)
 			return nil
 		}
 
-		if GlobalCallControl != nil {
-			GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
-				Type: msgType,
-				Data: msg["data"],
-			})
-		}
+		// fmt.Println("i dont know what's happening")
+
+		// if GlobalCallControl != nil {
+		// 	GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
+		// 		Type: msgType,
+		// 		Data: msg["data"],
+		// 	})
+		// }
 
 		return WebsocketMesssage{
 			Type: msgType,
