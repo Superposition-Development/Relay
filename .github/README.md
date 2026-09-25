@@ -21,7 +21,7 @@ Relay's main draw is its lack of a centralized server; This means user hosting.
 
 Relay instead focuses on self-hosted servers where only designated known recipients of the server address have access. This means third parties that wish to access user data must discover the server address.<br> Servers are meant to be quickly redeployed on new domains in contingency.
 
-This is the CLI edition of the client; other versions are available and accessible on other branches of this repository. But all users, regardless of version, can connect to the same server.
+This is the CLI edition of the client; other versions are available and accessible on other branches of this repository. But all users, regardless of version, can connect to the same server. The server codebase is available at https://github.com/Superposition-Development/RelayServer
 
 
 # Installing Relay
