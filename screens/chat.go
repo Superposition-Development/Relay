@@ -2,7 +2,6 @@ package screens
 
 import (
 	"Relay/app"
-	"encoding/json"
 	"fmt"
 	"math"
 	"net/url"
@@ -52,10 +51,6 @@ type ChatScreen struct {
 	scrollOffset         int
 }
 
-type GetChannelsRequest struct {
-	ServerID any `json:"serverID"`
-}
-
 type GetMessagesRequest struct {
 	ServerID  any `json:"serverID"`
 	ChannelID any `json:"channelID"`
@@ -78,7 +73,7 @@ const (
 )
 
 func CreateChatScreen(h, w int) *ChatScreen {
-	app.Servers = GetServers()
+	app.Servers = app.GetServers()
 	return &ChatScreen{
 		height:             h,
 		width:              w - 1,
@@ -91,7 +86,7 @@ func CreateChatScreen(h, w int) *ChatScreen {
 }
 
 func (m *ChatScreen) Init() tea.Cmd {
-	return tea.Batch(app.ListenForWSMsg(), tickCmd())
+	return tea.Batch(app.ListenForWSMsg(), tickCmd()) //does this have ap oint?
 }
 
 func calculateTotalMessageLines(messages []app.Message, innerWidth int) int {
@@ -122,14 +117,12 @@ func calculateTotalMessageLines(messages []app.Message, innerWidth int) int {
 }
 
 func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
-	// fmt.Println(msg)
 	switch msg := msg.(type) {
-	case app.WebsocketMesssage:
+	case app.WebsocketMessage:
 		switch msg.Type {
 		case "recieveMessage":
-			// fmt.Print("i am scared")
 			if m.activeServerIndex < 0 || m.activeChannelIndex < 0 {
-				return m, nil
+				return m, app.ListenForWSMsg()
 			}
 
 			activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
@@ -169,11 +162,11 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 			return m, app.ListenForWSMsg()
 		case "newServer":
-			app.Servers = GetServers()
+			app.Servers = app.GetServers()
 			return m, app.ListenForWSMsg()
 		case "newChannel":
 			//eventually this needs to be changed to be the serverID associated with new channel
-			app.Channels = GetChannels(app.CurrentServerID)
+			app.Channels = app.GetChannels(app.CurrentServerID)
 			return m, app.ListenForWSMsg()
 		}
 
@@ -275,7 +268,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 				m.activeServerIndex = m.selectedServerIndex
 				app.CurrentServerID = app.ServerListToDataMap[m.activeServerIndex].ID
-				app.Channels = GetChannels(app.CurrentServerID)
+				app.Channels = app.GetChannels(app.CurrentServerID)
 				m.focusedPanel = channelMenu
 				app.Messages = nil
 				break
@@ -409,7 +402,7 @@ func (m *ChatScreen) View() string {
 	top := borderStyle.Render("┌─ " + title + " " + strings.Repeat("─", headerWidth) + "┐")
 
 	serverIDLabel := ""
-	if m.activeServerIndex > 0 {
+	if m.activeChannelIndex > 0 {
 		serverIDLabel = " | ServerID: " + fmt.Sprintf("%v", app.CurrentServerID)
 	}
 
@@ -731,89 +724,6 @@ func SendMessage(m *ChatScreen) {
 		m.inputBuffer = ""
 		m.cursorPos = 0
 	}
-}
-
-func GetServers() []app.Server {
-	JWTCookie, err := app.LoadToken()
-	if err != nil {
-		fmt.Print(err)
-	}
-	loginURL := url.URL{
-		Scheme: app.ServerURL.Scheme,
-		Host:   app.ServerURL.Host,
-		Path:   app.GetServerEndpoint,
-	}
-	res := app.GET(JWTCookie, loginURL.String())
-	if res.Error != nil {
-		fmt.Println("Error:", res.Error)
-		return nil
-	}
-
-	var realServers []app.Server
-	if err := json.Unmarshal(res.Data, &realServers); err != nil {
-		fmt.Println("Error decoding servers:", err)
-		return nil
-	}
-
-	createServerItem := app.Server{
-		ID:   "Six Seven",
-		Name: "+ Create",
-	}
-
-	joinServerItem := app.Server{
-		ID:   "Six Seven",
-		Name: "+ Join",
-	}
-
-	selectDMItem := app.Server{
-		ID:   "Six Seven",
-		Name: "+ DM",
-	}
-
-	servers := append([]app.Server{createServerItem, joinServerItem, selectDMItem}, realServers...)
-
-	app.ServerListToDataMap = make(map[int]app.Server, len(servers))
-	for i, s := range servers {
-		app.ServerListToDataMap[i] = s
-	}
-
-	return servers
-}
-
-func GetChannels(serverID any) []app.Channel {
-	JWTCookie, err := app.LoadToken()
-	if err != nil {
-		fmt.Print(err)
-	}
-	reqPayload := GetChannelsRequest{
-		ServerID: fmt.Sprintf("%v", serverID),
-	}
-	getChannelURL := url.URL{
-		Scheme: app.ServerURL.Scheme,
-		Host:   app.ServerURL.Host,
-		Path:   app.GetChannelEndpoint,
-	}
-
-	var realChannels []app.Channel
-	if err := app.POST(reqPayload, JWTCookie, getChannelURL.String(), &realChannels); err != nil {
-		fmt.Println("Error:", err)
-		return nil
-	}
-
-	createChannelItem := app.Channel{
-		ID:   "Six Seven",
-		Name: "Create",
-		Type: "Create",
-	}
-
-	channels := append([]app.Channel{createChannelItem}, realChannels...)
-
-	app.ChannelListToDataMap = make(map[int]app.Channel, len(channels))
-	for i, s := range channels {
-		app.ChannelListToDataMap[i] = s
-	}
-
-	return channels
 }
 
 func GetMessages(serverID any, channelID any, messageID any, ascending any, moreThan any) []app.Message {

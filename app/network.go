@@ -6,17 +6,106 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gorilla/websocket"
+	"github.com/pion/webrtc/v3"
 )
 
 var (
 	mu sync.Mutex
 )
+
+type GetChannelsRequest struct {
+	ServerID any `json:"serverID"`
+}
+
+func GetServers() []Server {
+	JWTCookie, err := LoadToken()
+	if err != nil {
+		fmt.Print(err)
+	}
+	loginURL := url.URL{
+		Scheme: ServerURL.Scheme,
+		Host:   ServerURL.Host,
+		Path:   GetServerEndpoint,
+	}
+	res := GET(JWTCookie, loginURL.String())
+	if res.Error != nil {
+		fmt.Println("Error:", res.Error)
+		return nil
+	}
+
+	var realServers []Server
+	if err := json.Unmarshal(res.Data, &realServers); err != nil {
+		fmt.Println("Error decoding servers:", err)
+		return nil
+	}
+
+	createServerItem := Server{
+		ID:   "Six Seven",
+		Name: "+ Create",
+	}
+
+	joinServerItem := Server{
+		ID:   "Six Seven",
+		Name: "+ Join",
+	}
+
+	selectDMItem := Server{
+		ID:   "Six Seven",
+		Name: "+ DM",
+	}
+
+	servers := append([]Server{createServerItem, joinServerItem, selectDMItem}, realServers...)
+
+	ServerListToDataMap = make(map[int]Server, len(servers))
+	for i, s := range servers {
+		ServerListToDataMap[i] = s
+	}
+
+	return servers
+}
+
+func GetChannels(serverID any) []Channel {
+	JWTCookie, err := LoadToken()
+	if err != nil {
+		fmt.Print(err)
+	}
+	reqPayload := GetChannelsRequest{
+		ServerID: fmt.Sprintf("%v", serverID),
+	}
+	getChannelURL := url.URL{
+		Scheme: ServerURL.Scheme,
+		Host:   ServerURL.Host,
+		Path:   GetChannelEndpoint,
+	}
+
+	var realChannels []Channel
+	if err := POST(reqPayload, JWTCookie, getChannelURL.String(), &realChannels); err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+
+	createChannelItem := Channel{
+		ID:   "Six Seven",
+		Name: "Create",
+		Type: "Create",
+	}
+
+	channels := append([]Channel{createChannelItem}, realChannels...)
+
+	ChannelListToDataMap = make(map[int]Channel, len(channels))
+	for i, s := range channels {
+		ChannelListToDataMap[i] = s
+	}
+
+	return channels
+}
 
 type ResponseResult struct {
 	Data  []byte
@@ -151,77 +240,19 @@ func RegisterWebsocket(address string, jwtToken string) {
 				return
 			}
 
-			// fmt.Printf("[WS] RECEIVED RAW: %s\n", string(messageData))
-
 			var parsed map[string]any
 
 			if err := json.Unmarshal(messageData, &parsed); err != nil {
 				fmt.Printf("[WS] JSON decode error: %v\n", err)
 				continue
 			}
+			WSChan <- parsed
+			ObtainEvent(WebsocketMessage{Type: fmt.Sprintf("%v", parsed["type"]),
+				Data: parsed["data"]})
 
-			// fmt.Printf("[WS] RECEIVED TYPE: %v\n", parsed["message"])
-
-			// if GlobalCallControl != nil {
-			// 	GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
-			// 		Type: fmt.Sprintf("%v", parsed["type"]),
-			// 		Data: parsed["data"],
-			// 	})
-			// }
-
-			select {
-			case WSChan <- parsed:
-				// fmt.Printf("[WS] Queued signaling message: %v\n", parsed["message"])
-			default:
-				fmt.Printf("[WS] WSChan FULL - DROPPED: %v\n", parsed["message"])
-			}
 		}
 	}()
 }
-
-// func HandleWebsocketMessage(msg map[string]any) tea.Msg {
-// 	// msgType, _ := msg["type"].(string)
-// 	// if msgType != "recieveMessage" {
-// 	// 	return nil
-// 	// }
-
-// 	// dataMap, ok := msg["data"].(map[string]any)
-// 	// if !ok {
-// 	// 	return nil
-// 	// }
-
-// 	// name, _ := dataMap["name"].(string)
-// 	// if name == "" {
-// 	// 	name, _ = dataMap["name"].(string)
-// 	// }
-
-// 	// content, _ := dataMap["content"].(string)
-// 	// serverID := fmt.Sprintf("%v", dataMap["serverID"])
-// 	// channelID := fmt.Sprintf("%v", dataMap["channelID"])
-
-// 	// var msgID int64
-// 	// if idFloat, ok := dataMap["id"].(float64); ok {
-// 	// 	msgID = int64(idFloat)
-// 	// }
-
-// 	// var timestamp int64
-// 	// if tsFloat, ok := dataMap["timestamp"].(float64); ok {
-// 	// 	timestamp = int64(tsFloat)
-// 	// }
-
-// 	// newMessage := Message{
-// 	// 	ID:        msgID,
-// 	// 	Username:  name,
-// 	// 	Content:   content,
-// 	// 	Timestamp: timestamp,
-// 	// }
-
-// 	// return WebsocketMsg{
-// 	// 	ServerID:  serverID,
-// 	// 	ChannelID: channelID,
-// 	// 	Message:   newMessage,
-// 	// }
-// }
 
 func SendWebsocketJSON(message any) {
 	mu.Lock()
@@ -239,7 +270,7 @@ func SendWebsocketJSON(message any) {
 
 var WSChan = make(chan map[string]any, 100)
 
-type WebsocketMesssage struct {
+type WebsocketMessage struct {
 	Type string `json:"type"`
 
 	Data interface{} `json:"data"`
@@ -255,18 +286,61 @@ func ListenForWSMsg() tea.Cmd {
 			return nil
 		}
 
-		// fmt.Println("i dont know what's happening")
-
-		// if GlobalCallControl != nil {
-		// 	GlobalCallControl.HandleSignalMessage(WebsocketMesssage{
-		// 		Type: msgType,
-		// 		Data: msg["data"],
-		// 	})
-		// }
-
-		return WebsocketMesssage{
+		return WebsocketMessage{
 			Type: msgType,
 			Data: msg["data"],
 		}
 	}
+}
+
+func ObtainEvent(message WebsocketMessage) {
+	switch message.Type {
+	case "answer":
+		var answerSDP string
+		switch v := message.Data.(type) {
+		case string:
+			var answerMap map[string]interface{}
+			if err := json.Unmarshal([]byte(v), &answerMap); err != nil {
+				return
+			}
+			answerSDP, _ = answerMap["sdp"].(string)
+		case map[string]interface{}:
+			answerSDP, _ = v["sdp"].(string)
+		}
+
+		if answerSDP == "" {
+			return
+		}
+
+		answer := webrtc.SessionDescription{
+			Type: webrtc.SDPTypeAnswer,
+			SDP:  answerSDP,
+		}
+
+		if err := ClientPeerConnection.SetRemoteDescription(answer); err != nil {
+			return
+		}
+
+	case "candidate":
+		var init webrtc.ICECandidateInit //ICECandidateInit
+		switch v := message.Data.(type) {
+		case string:
+			if err := json.Unmarshal([]byte(v), &init); err != nil {
+				return
+			}
+		case map[string]interface{}:
+			raw, err := json.Marshal(v)
+			if err != nil {
+				return
+			}
+			if err := json.Unmarshal(raw, &init); err != nil {
+				return
+			}
+		default:
+			return
+		}
+		ClientPeerConnection.AddICECandidate(init)
+		//refer to repo prending candidates
+	}
+
 }

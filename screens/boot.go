@@ -1,13 +1,12 @@
 package screens
 
 import (
+	"Relay/app"
+	_ "embed"
 	"fmt"
 	"math"
 	"strings"
 	"time"
-
-	"Relay/app"
-	_ "embed"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,6 +19,7 @@ type bootTickMsg struct{}
 
 //go:embed boot.txt
 var bootArt string
+var CurrentScreen = NewBootScreen()
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
