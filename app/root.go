@@ -30,6 +30,12 @@ type Server struct {
 	Name string `json:"name"`
 }
 
+type DM struct { //functionally pointless, but easier for debug ig
+	ID   any    `json:"id"`
+	PFP  string `json:"pfp"`
+	Name string `json:"name"`
+}
+
 type Channel struct {
 	ID   any    `json:"id"`
 	Name string `json:"name"`
@@ -52,6 +58,7 @@ var CurrentServerID any
 var CurrentChannelID any
 var ServerListToDataMap = make(map[int]Server, 0)
 var ChannelListToDataMap = make(map[int]Channel, 0)
+var DMListToDataMap = make(map[int]DM, 0)
 var Servers = make([]Server, 0)
 var Channels = make([]Channel, 0)
 var Messages = make([]Message, 0)

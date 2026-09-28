@@ -49,6 +49,7 @@ type ChatScreen struct {
 	modalType            int
 	activeModal          Modal
 	scrollOffset         int
+	serverMenuMode       int //the part that says +create +join etc.
 }
 
 type GetMessagesRequest struct {
@@ -59,7 +60,7 @@ type GetMessagesRequest struct {
 	MoreThan  any `json:"moreThan"`
 }
 
-const (
+const ( //what is selected
 	profileMenu = iota
 	serverMenu
 	channelMenu
@@ -67,9 +68,14 @@ const (
 	typingField
 )
 
-const (
+const ( //modal stuff
 	joinServerModal = iota
 	createChannelModal
+)
+
+const ( //what is selected on the left menu
+	MenuModeServer = iota
+	MenuModeDM
 )
 
 func CreateChatScreen(h, w int) *ChatScreen {
@@ -82,6 +88,7 @@ func CreateChatScreen(h, w int) *ChatScreen {
 		activeChannelIndex: -1,
 		activeServerIndex:  -1,
 		activeModal:        nil,
+		serverMenuMode:     MenuModeServer,
 	}
 }
 
@@ -261,7 +268,12 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 
 						return m, nil
 					case 2:
-
+						switch m.serverMenuMode {
+						case MenuModeServer:
+							m.serverMenuMode = MenuModeDM
+						case MenuModeDM:
+							m.serverMenuMode = MenuModeServer
+						}
 						return m, nil
 					}
 				}

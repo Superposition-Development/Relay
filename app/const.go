@@ -13,6 +13,9 @@ var (
 	CreateChannelEndpoint = "/createChannel"
 	GetChannelEndpoint    = "/getChannels"
 
+	CreateDMEndpoint = "/createDM"
+	GetDMEndpoint    = "/getDMs"
+
 	//socket endpoints
 	SendMessageEndpoint = "/sendMessage"
 	GetMessagesEndpoint = "/getMessages"

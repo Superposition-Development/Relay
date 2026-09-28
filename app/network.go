@@ -71,6 +71,48 @@ func GetServers() []Server {
 	return servers
 }
 
+func GetDMs() []DM {
+	JWTCookie, err := LoadToken()
+	if err != nil {
+		fmt.Print(err)
+	}
+	GetDMURL := url.URL{
+		Scheme: ServerURL.Scheme,
+		Host:   ServerURL.Host,
+		Path:   GetDMEndpoint,
+	}
+	res := GET(JWTCookie, GetDMURL.String())
+	if res.Error != nil {
+		fmt.Println("Error:", res.Error)
+		return nil
+	}
+
+	var realDMs []DM
+	if err := json.Unmarshal(res.Data, &realDMs); err != nil {
+		fmt.Println("Error decoding servers:", err)
+		return nil
+	}
+
+	createDMItem := DM{
+		ID:   "Six Seven",
+		Name: "+ Create",
+	}
+
+	selectDMItem := DM{
+		ID:   "Six Seven",
+		Name: "+ Servers",
+	}
+
+	dms := append([]DM{createDMItem, selectDMItem}, realDMs...)
+
+	DMListToDataMap = make(map[int]DM, len(dms))
+	for i, s := range dms {
+		DMListToDataMap[i] = s
+	}
+
+	return dms
+}
+
 func GetChannels(serverID any) []Channel {
 	JWTCookie, err := LoadToken()
 	if err != nil {
