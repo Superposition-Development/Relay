@@ -31,9 +31,8 @@ type Server struct {
 }
 
 type DM struct { //functionally pointless, but easier for debug ig
-	ID   any    `json:"id"`
-	PFP  string `json:"pfp"`
-	Name string `json:"name"`
+	ID     any    `json:"id"`
+	UserID string `json:"name"`
 }
 
 type Channel struct {
@@ -62,6 +61,7 @@ var DMListToDataMap = make(map[int]DM, 0)
 var Servers = make([]Server, 0)
 var Channels = make([]Channel, 0)
 var Messages = make([]Message, 0)
+var DMs = make([]DM, 0)
 
 // var GlobalCallControl *CallControl //= InstantiateCallControl()
 

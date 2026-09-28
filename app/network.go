@@ -1,6 +1,7 @@
 package app
 
 import (
+	"Relay/util"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -87,23 +88,24 @@ func GetDMs() []DM {
 		return nil
 	}
 
-	var realDMs []DM
+	var realDMs map[string][]string //[]DM
 	if err := json.Unmarshal(res.Data, &realDMs); err != nil {
 		fmt.Println("Error decoding servers:", err)
 		return nil
 	}
 
 	createDMItem := DM{
-		ID:   "Six Seven",
-		Name: "+ Create",
+		ID:     "Six Seven",
+		UserID: "+ Create",
 	}
 
-	selectDMItem := DM{
-		ID:   "Six Seven",
-		Name: "+ Servers",
-	}
+	dms := []DM{createDMItem}
 
-	dms := append([]DM{createDMItem, selectDMItem}, realDMs...)
+	for key, value := range realDMs {
+		value = util.RemoveByValue(value, CurrentUserID)
+		// fmt.Printf("Key: %d, Value: %s\n", key, value)
+		dms = append(dms, DM{ID: key, UserID: value[0]})
+	}
 
 	DMListToDataMap = make(map[int]DM, len(dms))
 	for i, s := range dms {
@@ -111,6 +113,7 @@ func GetDMs() []DM {
 	}
 
 	return dms
+	// return nil
 }
 
 func GetChannels(serverID any) []Channel {

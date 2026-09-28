@@ -80,6 +80,7 @@ const ( //what is selected on the left menu
 
 func CreateChatScreen(h, w int) *ChatScreen {
 	app.Servers = app.GetServers()
+	app.DMs = app.GetDMs()
 	return &ChatScreen{
 		height:             h,
 		width:              w - 1,
@@ -251,30 +252,55 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 			if m.focusedPanel == serverMenu && len(app.Servers) > 0 {
-				if m.selectedServerIndex <= 2 {
-					switch m.selectedServerIndex {
+				switch m.serverMenuMode {
+				case MenuModeServer:
+					if m.selectedServerIndex <= 2 {
+						switch m.selectedServerIndex {
 
-					case 0:
-						return m, func() tea.Msg {
-							return app.ChangeScreenMsg{
-								Screen: NewCreateServerScreen(m.height, m.width),
-								Width:  m.width,
-								Height: m.height,
+						case 0:
+							return m, func() tea.Msg {
+								return app.ChangeScreenMsg{
+									Screen: NewCreateServerScreen(m.height, m.width),
+									Width:  m.width,
+									Height: m.height,
+								}
 							}
-						}
-					case 1:
-						m.activeModal = NewJoinServerModal()
-						m.modalType = joinServerModal
+						case 1:
+							m.activeModal = NewJoinServerModal()
+							m.modalType = joinServerModal
 
-						return m, nil
-					case 2:
-						switch m.serverMenuMode {
-						case MenuModeServer:
-							m.serverMenuMode = MenuModeDM
-						case MenuModeDM:
-							m.serverMenuMode = MenuModeServer
+							return m, nil
+						case 2:
+							switch m.serverMenuMode {
+							case MenuModeServer:
+								m.serverMenuMode = MenuModeDM
+							case MenuModeDM:
+								m.serverMenuMode = MenuModeServer
+							}
+							return m, nil
 						}
-						return m, nil
+					}
+				case MenuModeDM:
+					if m.selectedServerIndex <= 1 {
+						switch m.selectedServerIndex {
+
+						case 0:
+							return m, func() tea.Msg {
+								return app.ChangeScreenMsg{
+									Screen: NewCreateServerScreen(m.height, m.width),
+									Width:  m.width,
+									Height: m.height,
+								}
+							}
+						case 1:
+							switch m.serverMenuMode {
+							case MenuModeServer:
+								m.serverMenuMode = MenuModeDM
+							case MenuModeDM:
+								m.serverMenuMode = MenuModeServer
+							}
+							return m, nil
+						}
 					}
 				}
 
@@ -321,6 +347,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			if !m.inMenu {
 				m.focusedPanel = (m.focusedPanel + 1) % (typingField + 1)
 			}
+			// app.GetDMs()
 
 		case "backspace":
 			if m.cursorPos > 0 {
@@ -430,20 +457,40 @@ func (m *ChatScreen) View() string {
 	servers := renderListBox("Servers", app.Servers, func(s app.Server) string { return s.Name },
 		serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.activeServerIndex, m.cursorBlink)
 
-	channels := renderListBox("Channels", app.Channels, func(c app.Channel) string {
-		symbol := ""
-		switch c.Type {
-		case "voice":
-			symbol = "☏"
-		case "text":
-			symbol = "#"
-		case "Create":
-			symbol = "+"
-		}
+	channelsBox := ""
+	switch m.serverMenuMode {
+	case MenuModeServer:
+		channelsBox = renderListBox("Channels", app.Channels, func(c app.Channel) string {
+			symbol := ""
+			switch c.Type {
+			case "voice":
+				symbol = "☏"
+			case "text":
+				symbol = "#"
+			case "Create":
+				symbol = "+"
+			}
 
-		return symbol + " " + c.Name
-	},
-		channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
+			return symbol + " " + c.Name
+		},
+			channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
+	case MenuModeDM:
+		channelsBox = renderListBox("DMs", app.DMs, func(c app.DM) string {
+			// symbol := ""
+			// switch c.Type {
+			// case "voice":
+			// 	symbol = "☏"
+			// case "text":
+			// 	symbol = "#"
+			// case "Create":
+			// 	symbol = "+"
+			// }
+
+			// return symbol + " " + c.Name
+			return c.UserID
+		},
+			channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
+	}
 
 	chatTitle := ""
 
@@ -461,7 +508,7 @@ func (m *ChatScreen) View() string {
 		app.Messages,
 		m,
 	)
-	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channels, chat)
+	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channelsBox, chat)
 
 	sepRunes := []rune(strings.Repeat("─", m.width-2))
 	if idx := leftDividerX - 1; idx >= 0 && idx < len(sepRunes) {
