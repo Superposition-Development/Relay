@@ -131,7 +131,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case app.WebsocketMessage:
 		switch msg.Type {
-		case "recieveMessage":
+		case "recieveMessageServer":
 			if m.activeServerIndex < 0 || (m.activeChannelIndex < 0 && m.activeDMIndex < 0) {
 				return m, app.ListenForWSMsg()
 			}
@@ -806,6 +806,7 @@ func SendMessage(m *ChatScreen) {
 			"channelID": fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
 			"content":   m.inputBuffer,
 			"authKey":   token,
+			"message":   "sendMessageServer",
 		}
 
 		app.SendWebsocketJSON(payload)
