@@ -42,6 +42,8 @@ type ChatScreen struct {
 	cursorBlink          bool
 	selectedChannelIndex int
 	activeChannelIndex   int
+	selectedDMIndex      int
+	activeDMIndex        int
 	focusedPanel         int
 	inMenu               bool
 	selectedServerIndex  int
@@ -88,6 +90,7 @@ func CreateChatScreen(h, w int) *ChatScreen {
 		focusedPanel:       profileMenu,
 		activeChannelIndex: -1,
 		activeServerIndex:  -1,
+		activeDMIndex:      -1,
 		activeModal:        nil,
 		serverMenuMode:     MenuModeServer,
 	}
@@ -129,23 +132,26 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 	case app.WebsocketMessage:
 		switch msg.Type {
 		case "recieveMessage":
-			if m.activeServerIndex < 0 || m.activeChannelIndex < 0 {
+			if m.activeServerIndex < 0 || (m.activeChannelIndex < 0 && m.activeDMIndex < 0) {
 				return m, app.ListenForWSMsg()
 			}
 
 			activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
 			activeChannelID := fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID)
+			activeDMID := fmt.Sprintf("%v", app.DMListToDataMap[m.activeDMIndex].ID)
 
 			serverID := ""
 			channelID := ""
+			dmID := ""
 			name := ""
 			content := ""
 			var msgID int64
 			var timestamp int64
 
 			if dataMap, ok := msg.Data.(map[string]interface{}); ok {
-				serverID = fmt.Sprintf("%v", dataMap["serverID"])
+				serverID = fmt.Sprintf("%v", dataMap["serverID"]) //TODO: send nil from the server
 				channelID = fmt.Sprintf("%v", dataMap["channelID"])
+				dmID = fmt.Sprintf("%v", dataMap["dmID"])
 				name = fmt.Sprintf("%v", dataMap["name"])
 				content = fmt.Sprintf("%v", dataMap["content"])
 				if idFloat, ok := dataMap["id"].(float64); ok {
@@ -164,7 +170,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				Timestamp: timestamp,
 			}
 
-			if serverID == activeServerID && channelID == activeChannelID {
+			if serverID == activeServerID && (channelID == activeChannelID || dmID == activeDMID) {
 				app.Messages = append(app.Messages, newMessage)
 			}
 
@@ -370,9 +376,14 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			if m.inMenu && m.focusedPanel == serverMenu && len(app.Servers) > 0 {
 				m.selectedServerIndex = (m.selectedServerIndex + 1) % len(app.Servers)
 			}
-			if m.inMenu && m.focusedPanel == channelMenu && len(app.Channels) > 0 {
-				m.selectedChannelIndex = (m.selectedChannelIndex + 1) % len(app.Channels)
+			if m.inMenu && m.focusedPanel == channelMenu {
+				if m.serverMenuMode == MenuModeDM && len(app.DMs) > 0 {
+					m.selectedDMIndex = (m.selectedDMIndex + 1) % len(app.DMs)
+				} else if m.serverMenuMode == MenuModeServer && len(app.Channels) > 0 {
+					m.selectedChannelIndex = (m.selectedChannelIndex + 1) % len(app.Channels)
+				}
 			}
+
 			if m.focusedPanel == messages {
 				m.scrollOffset--
 			}
@@ -384,12 +395,27 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					m.selectedServerIndex = len(app.Servers) - 1
 				}
 			}
-			if m.inMenu && m.focusedPanel == channelMenu && len(app.Channels) > 0 {
-				m.selectedChannelIndex--
-				if m.selectedChannelIndex < 0 {
-					m.selectedChannelIndex = len(app.Channels) - 1
+			// if m.inMenu && m.focusedPanel == channelMenu && len(app.Channels) > 0 {
+			// 	m.selectedChannelIndex--
+			// 	if m.selectedChannelIndex < 0 {
+			// 		m.selectedChannelIndex = len(app.Channels) - 1
+			// 	}
+			// }
+
+			if m.inMenu && m.focusedPanel == channelMenu {
+				if m.serverMenuMode == MenuModeDM && len(app.DMs) > 0 {
+					m.selectedDMIndex--
+					if m.selectedDMIndex < 0 {
+						m.selectedDMIndex = len(app.DMs) - 1
+					}
+				} else if m.serverMenuMode == MenuModeServer && len(app.Channels) > 0 {
+					m.selectedChannelIndex--
+					if m.selectedChannelIndex < 0 {
+						m.selectedChannelIndex = len(app.Channels) - 1
+					}
 				}
 			}
+
 			if m.focusedPanel == messages {
 				messageAreaHeight := m.height - 7
 
@@ -498,6 +524,10 @@ func (m *ChatScreen) View() string {
 		if channel, ok := app.ChannelListToDataMap[m.activeChannelIndex]; ok {
 			chatTitle = channel.Name
 		}
+	}
+
+	if m.activeDMIndex >= 0 {
+
 	}
 
 	chat := chatBox(
@@ -776,7 +806,6 @@ func SendMessage(m *ChatScreen) {
 			"channelID": fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
 			"content":   m.inputBuffer,
 			"authKey":   token,
-			"message":   "sendMessage",
 		}
 
 		app.SendWebsocketJSON(payload)
