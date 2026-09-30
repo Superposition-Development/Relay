@@ -2,6 +2,7 @@ package screens
 
 import (
 	"Relay/app"
+	"Relay/util"
 	"fmt"
 	"math"
 	"net/url"
@@ -486,7 +487,7 @@ func (m *ChatScreen) View() string {
 
 	channelsBox := ""
 
-	membersBox := strings.Join(app.OnlineServerUsers, "\n")
+	membersBox := strings.Join(util.TruncateStrings(app.OnlineServerUsers, 11), "\n")
 
 	switch m.serverMenuMode {
 	case MenuModeServer:

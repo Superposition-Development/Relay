@@ -9,4 +9,16 @@ func RemoveByValue[T comparable](s []T, value T) []T {
 	return s
 }
 
+func TruncateStrings(strings []string, maxLength int) []string {
+	for i, s := range strings {
+		runes := []rune(s)
+
+		if len(runes) > maxLength {
+			strings[i] = string(runes[:maxLength])
+		}
+	}
+
+	return strings
+}
+
 //this is probably a pointless package...
