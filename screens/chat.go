@@ -341,6 +341,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					channelID,
 					"0", false, true,
 				))
+				app.OnlineServerUsers = app.GetServerUsers(serverID)
 				break
 			}
 
@@ -459,7 +460,7 @@ func (m *ChatScreen) View() string {
 
 	serversWidth := 12
 	channelsWidth := 20
-	rightPadding := 10
+	rightPanelWidth := 10
 	panelHeight := clamp(m.height-5, 4, m.height)
 
 	title := "Relay"
@@ -477,13 +478,16 @@ func (m *ChatScreen) View() string {
 	middle := borderStyle.Render("│" + addr + strings.Repeat(" ", spacing) + userID + "│")
 
 	leftDividerX := serversWidth + channelsWidth
-	rightDividerX := m.width - rightPadding - 3
+	rightDividerX := m.width - rightPanelWidth - 3
 	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
 
 	servers := renderListBox("Servers", app.Servers, func(s app.Server) string { return s.Name },
 		serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.activeServerIndex, m.cursorBlink)
 
 	channelsBox := ""
+
+	membersBox := strings.Join(app.OnlineServerUsers, "\n")
+
 	switch m.serverMenuMode {
 	case MenuModeServer:
 		channelsBox = renderListBox("Channels", app.Channels, func(c app.Channel) string {
@@ -538,7 +542,8 @@ func (m *ChatScreen) View() string {
 		app.Messages,
 		m,
 	)
-	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channelsBox, chat)
+
+	fullPanels := lipgloss.JoinHorizontal(lipgloss.Top, servers, channelsBox, chat, membersBox)
 
 	sepRunes := []rune(strings.Repeat("─", m.width-2))
 	if idx := leftDividerX - 1; idx >= 0 && idx < len(sepRunes) {
