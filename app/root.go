@@ -62,6 +62,8 @@ var Servers = make([]Server, 0)
 var Channels = make([]Channel, 0)
 var Messages = make([]Message, 0)
 var DMs = make([]DM, 0)
+var OnlineServerUsers = []string{}             //map[string]struct{}{}
+var OfflineServerUsers = map[string]struct{}{} //haha this will go unused until the future because thsi is very difficult
 
 // var GlobalCallControl *CallControl //= InstantiateCallControl()
 

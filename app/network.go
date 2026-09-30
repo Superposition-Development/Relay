@@ -152,6 +152,30 @@ func GetChannels(serverID any) []Channel {
 	return channels
 }
 
+// return all the userIDs, this eventually will need to be updated for pagination purposes
+func GetServerUsers(serverID any) []string {
+	JWTCookie, err := LoadToken()
+	if err != nil {
+		fmt.Print(err)
+	}
+	reqPayload := GetChannelsRequest{ //we can steal this because i dont want to define a new type and this one matches the args
+		ServerID: fmt.Sprintf("%v", serverID),
+	}
+	getChannelURL := url.URL{
+		Scheme: ServerURL.Scheme,
+		Host:   ServerURL.Host,
+		Path:   GetServerUsersEndpoint,
+	}
+
+	var userIDs []string
+	if err := POST(reqPayload, JWTCookie, getChannelURL.String(), &userIDs); err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+
+	return userIDs
+}
+
 type ResponseResult struct {
 	Data  []byte
 	Error error

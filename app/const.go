@@ -6,9 +6,10 @@ var (
 	LoginEndpoint        = "/login"
 	ValidateUserEndpoint = "/validateUserToken"
 
-	CreateServerEndpoint = "/createServer"
-	GetServerEndpoint    = "/getServers"
-	JoinServerEndpoint   = "/joinServer"
+	CreateServerEndpoint   = "/createServer"
+	GetServerEndpoint      = "/getServers"
+	JoinServerEndpoint     = "/joinServer"
+	GetServerUsersEndpoint = "/getServerUsers"
 
 	CreateChannelEndpoint = "/createChannel"
 	GetChannelEndpoint    = "/getChannels"
