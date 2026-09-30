@@ -55,6 +55,7 @@ var CurrentUserID = ""
 var Socket *websocket.Conn
 var CurrentServerID any
 var CurrentChannelID any
+var CurrentDMID any
 var ServerListToDataMap = make(map[int]Server, 0)
 var ChannelListToDataMap = make(map[int]Channel, 0)
 var DMListToDataMap = make(map[int]DM, 0)

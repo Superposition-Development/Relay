@@ -18,6 +18,7 @@ var (
 	GetDMEndpoint    = "/getDMs"
 
 	//socket endpoints
-	SendMessageEndpoint = "/sendMessage"
-	GetMessagesEndpoint = "/getMessages"
+	SendMessageEndpoint       = "/sendMessage"
+	GetMessagesServerEndpoint = "/getMessagesServer"
+	GetMessagesDMEndpoint     = "/getMessagesDM"
 )
