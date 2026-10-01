@@ -167,6 +167,54 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			}
 
 			return m, app.ListenForWSMsg()
+		case "recieveMessageDM":
+			if m.activeDMIndex < 0 {
+				// fmt.Println(m.activeDMIndex)
+				return m, app.ListenForWSMsg()
+			}
+
+			// activeServerID := fmt.Sprintf("%v", app.ServerListToDataMap[m.activeServerIndex].ID)
+			// activeChannelID := fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID)
+
+			// activeDMID := fmt.Sprintf("%v", app.DMListToDataMap[m.activeDMIndex].ID)
+			// fmt.Println(activeDMID)
+
+			// serverID := ""
+			// channelID := ""
+			dmID := ""
+			name := ""
+			content := ""
+			var msgID int64
+			var timestamp int64
+
+			if dataMap, ok := msg.Data.(map[string]interface{}); ok {
+				// channelID = fmt.Sprintf("%v", dataMap["channelID"])
+				dmID = fmt.Sprintf("%v", dataMap["dmID"])
+				name = fmt.Sprintf("%v", dataMap["name"])
+				content = fmt.Sprintf("%v", dataMap["content"])
+				if idFloat, ok := dataMap["id"].(float64); ok {
+					msgID = int64(idFloat)
+				}
+
+				if tsFloat, ok := dataMap["timestamp"].(float64); ok {
+					timestamp = int64(tsFloat)
+				}
+			}
+
+			newMessage := app.Message{
+				ID:        msgID,
+				Username:  name,
+				Content:   content,
+				Timestamp: timestamp,
+			}
+
+			//CHANGE THIS, DO NOT LEAVE THIS IN PROD
+			if dmID == fmt.Sprintf("%v", app.CurrentDMID) && app.CurrentServerID == "Six Seven" {
+				app.Messages = append(app.Messages, newMessage)
+			}
+
+			return m, app.ListenForWSMsg()
+
 		case "newServer":
 			app.Servers = app.GetServers()
 			return m, app.ListenForWSMsg()
@@ -371,7 +419,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 							}
 						}
 					}
-					fmt.Println(m.selectedDMIndex)
+					// fmt.Println(m.selectedDMIndex)
 					m.activeDMIndex = m.selectedDMIndex
 					app.CurrentDMID = app.DMListToDataMap[m.activeDMIndex].ID
 					m.focusedPanel = typingField
