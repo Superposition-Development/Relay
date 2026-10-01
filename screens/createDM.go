@@ -73,10 +73,9 @@ func (m CreateDMScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		case "enter":
 			if m.focused == 0 || m.focused == 1 {
 				payload := map[string]string{
-					"name": m.serverName.Value(),
-					"pfp":  "",
+					"targetID": m.serverName.Value(),
 				}
-				CreateServer(payload)
+				CreateDM(payload)
 			}
 			return m, func() tea.Msg {
 				return app.ChangeScreenMsg{
