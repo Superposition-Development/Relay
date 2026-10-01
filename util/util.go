@@ -21,4 +21,14 @@ func TruncateStrings(strings []string, maxLength int) []string {
 	return strings
 }
 
+func Clamp(val, minVal, maxVal int) int {
+	if val < minVal {
+		return minVal
+	}
+	if val > maxVal {
+		return maxVal
+	}
+	return val
+}
+
 //this is probably a pointless package...

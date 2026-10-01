@@ -25,6 +25,21 @@ type GetChannelsRequest struct {
 	ServerID any `json:"serverID"`
 }
 
+type GetMessagesServerRequest struct {
+	ServerID  any `json:"serverID"`
+	ChannelID any `json:"channelID"`
+	MessageID any `json:"messageID"`
+	Ascending any `json:"ascending"`
+	MoreThan  any `json:"moreThan"`
+}
+
+type GetMessagesDMRequest struct {
+	DMID      any `json:"dmID"`
+	MessageID any `json:"messageID"`
+	Ascending any `json:"ascending"`
+	MoreThan  any `json:"moreThan"`
+}
+
 func GetServers() []Server {
 	JWTCookie, err := LoadToken()
 	if err != nil {
@@ -174,6 +189,61 @@ func GetServerUsers(serverID any) []string {
 	}
 
 	return userIDs
+}
+
+func GetMessagesServer(serverID any, channelID any, messageID any, ascending any, moreThan any) []Message {
+	JWTCookie, err := LoadToken()
+	if err != nil || JWTCookie == "" {
+		return nil
+	}
+
+	reqPayload := GetMessagesServerRequest{
+		ServerID:  fmt.Sprintf("%v", serverID),
+		ChannelID: fmt.Sprintf("%v", channelID),
+		MessageID: fmt.Sprintf("%v", messageID),
+		Ascending: fmt.Sprintf("%v", ascending),
+		MoreThan:  fmt.Sprintf("%v", moreThan),
+	}
+	url := url.URL{
+		Scheme: ServerURL.Scheme,
+		Host:   ServerURL.Host,
+		Path:   GetMessagesServerEndpoint,
+	}
+
+	var messages []Message
+	if err := POST(reqPayload, JWTCookie, url.String(), &messages); err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+
+	return messages
+}
+
+func GetMessagesDM(dmID any, messageID any, ascending any, moreThan any) []Message {
+	JWTCookie, err := LoadToken()
+	if err != nil || JWTCookie == "" {
+		return nil
+	}
+
+	reqPayload := GetMessagesDMRequest{
+		DMID:      fmt.Sprintf("%v", dmID),
+		MessageID: fmt.Sprintf("%v", messageID),
+		Ascending: fmt.Sprintf("%v", ascending),
+		MoreThan:  fmt.Sprintf("%v", moreThan),
+	}
+	url := url.URL{
+		Scheme: ServerURL.Scheme,
+		Host:   ServerURL.Host,
+		Path:   GetMessagesDMEndpoint,
+	}
+
+	var messages []Message
+	if err := POST(reqPayload, JWTCookie, url.String(), &messages); err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+
+	return messages
 }
 
 type ResponseResult struct {

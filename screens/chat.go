@@ -5,7 +5,6 @@ import (
 	"Relay/util"
 	"fmt"
 	"math"
-	"net/url"
 	"strings"
 	"time"
 
@@ -53,14 +52,6 @@ type ChatScreen struct {
 	activeModal          Modal
 	scrollOffset         int
 	serverMenuMode       int //the part that says +create +join etc.
-}
-
-type GetMessagesRequest struct {
-	ServerID  any `json:"serverID"`
-	ChannelID any `json:"channelID"`
-	MessageID any `json:"messageID"`
-	Ascending any `json:"ascending"`
-	MoreThan  any `json:"moreThan"`
 }
 
 const ( //what is selected
@@ -232,7 +223,12 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 		case "ctrl+s":
 
 			if app.CurrentInteractionMode == app.Write {
-				SendMessage(m)
+				switch m.serverMenuMode {
+				case MenuModeDM:
+					SendMessageDM(m)
+				case MenuModeServer:
+					SendMessageServer(m)
+				}
 			}
 
 		case "home":
@@ -246,7 +242,12 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				if app.CurrentInteractionMode == app.Write {
 					m.insertRune('\n')
 				} else {
-					SendMessage(m)
+					switch m.serverMenuMode {
+					case MenuModeDM:
+						SendMessageDM(m)
+					case MenuModeServer:
+						SendMessageServer(m)
+					}
 					return m, nil
 				}
 			}
@@ -258,56 +259,51 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				break
 			}
 
-			if m.focusedPanel == serverMenu && len(app.Servers) > 0 {
-				switch m.serverMenuMode {
-				case MenuModeServer:
-					if m.selectedServerIndex <= 2 {
-						switch m.selectedServerIndex {
+			if m.focusedPanel == serverMenu {
+				if m.selectedServerIndex <= 2 {
+					switch m.selectedServerIndex {
 
-						case 0:
-							return m, func() tea.Msg {
-								return app.ChangeScreenMsg{
-									Screen: NewCreateServerScreen(m.height, m.width),
-									Width:  m.width,
-									Height: m.height,
-								}
+					case 0:
+						return m, func() tea.Msg {
+							return app.ChangeScreenMsg{
+								Screen: NewCreateServerScreen(m.height, m.width),
+								Width:  m.width,
+								Height: m.height,
 							}
-						case 1:
-							m.activeModal = NewJoinServerModal()
-							m.modalType = joinServerModal
-
-							return m, nil
-						case 2:
-							switch m.serverMenuMode {
-							case MenuModeServer:
-								m.serverMenuMode = MenuModeDM
-							case MenuModeDM:
-								m.serverMenuMode = MenuModeServer
-							}
-							return m, nil
 						}
-					}
-				case MenuModeDM:
-					if m.selectedServerIndex <= 1 {
-						switch m.selectedServerIndex {
+					case 1:
+						m.activeModal = NewJoinServerModal()
+						m.modalType = joinServerModal
 
-						case 0:
-							return m, func() tea.Msg {
-								return app.ChangeScreenMsg{
-									Screen: NewCreateServerScreen(m.height, m.width),
-									Width:  m.width,
-									Height: m.height,
-								}
-							}
-						case 1:
-							switch m.serverMenuMode {
-							case MenuModeServer:
-								m.serverMenuMode = MenuModeDM
-							case MenuModeDM:
-								m.serverMenuMode = MenuModeServer
-							}
-							return m, nil
+						return m, nil
+					case 2:
+						switch m.serverMenuMode {
+						case MenuModeServer:
+							m.serverMenuMode = MenuModeDM
+							m.selectedChannelIndex = -1
+
+							m.activeChannelIndex = -1
+							m.activeServerIndex = -1
+							app.CurrentChannelID = -1
+							app.CurrentServerID = -1
+
+							m.selectedDMIndex = -1
+							m.activeDMIndex = -1
+							app.CurrentDMID = -1
+						case MenuModeDM:
+							m.serverMenuMode = MenuModeServer
+							m.selectedChannelIndex = -1
+
+							m.activeChannelIndex = -1
+							m.activeServerIndex = -1
+							app.CurrentChannelID = -1
+							app.CurrentServerID = -1
+
+							m.selectedDMIndex = 0
+							m.activeDMIndex = -1
+							app.CurrentDMID = -1
 						}
+						return m, nil
 					}
 				}
 
@@ -319,31 +315,72 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				break
 			}
 
-			if m.focusedPanel == channelMenu && len(app.Channels) > 0 {
-				if m.selectedChannelIndex == 0 {
-					m.activeModal = NewCreateChannelModal()
-					m.modalType = createChannelModal
+			/*
+				return m, func() tea.Msg {
+									return app.ChangeScreenMsg{
+										Screen: NewCreateServerScreen(m.height, m.width),
+										Width:  m.width,
+										Height: m.height,
+									}
+								}
+			*/
 
-					return m, nil
+			switch m.serverMenuMode {
+			case MenuModeServer:
+				if m.focusedPanel == channelMenu {
+					if m.selectedChannelIndex == 0 {
+						m.activeModal = NewCreateChannelModal()
+						m.modalType = createChannelModal
+
+						return m, nil
+					}
+					m.activeChannelIndex = m.selectedChannelIndex
+					m.focusedPanel = typingField
+					m.inMenu = false
+					serverID := app.CurrentServerID
+					channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
+
+					// if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
+					// 	app.GlobalCallControl = app.InstantiateCallControl(channelID)
+					// 	return m, app.GlobalCallControl.StartCallRoutine()
+					// }
+
+					app.Messages = app.ReverseMessages(app.GetMessagesServer(
+						serverID,
+						channelID,
+						"0", false, true,
+					))
+					app.OnlineServerUsers = app.GetServerUsers(serverID)
+					break
 				}
-				m.activeChannelIndex = m.selectedChannelIndex
-				m.focusedPanel = typingField
-				m.inMenu = false
-				serverID := app.CurrentServerID
-				channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
+			case MenuModeDM:
+				if m.focusedPanel == channelMenu {
+					if m.selectedDMIndex == 0 {
+						return m, func() tea.Msg {
+							return app.ChangeScreenMsg{
+								Screen: NewCreateDMScreen(m.height, m.width),
+								Width:  m.width,
+								Height: m.height,
+							}
+						}
+					}
+					m.activeDMIndex = m.selectedDMIndex
+					m.focusedPanel = typingField
+					m.inMenu = false
+					app.CurrentDMID = app.DMListToDataMap[m.activeDMIndex].ID
 
-				// if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
-				// 	app.GlobalCallControl = app.InstantiateCallControl(channelID)
-				// 	return m, app.GlobalCallControl.StartCallRoutine()
-				// }
+					// if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
+					// 	app.GlobalCallControl = app.InstantiateCallControl(channelID)
+					// 	return m, app.GlobalCallControl.StartCallRoutine()
+					// }
 
-				app.Messages = app.ReverseMessages(GetMessages(
-					serverID,
-					channelID,
-					"0", false, true,
-				))
-				app.OnlineServerUsers = app.GetServerUsers(serverID)
-				break
+					app.Messages = app.ReverseMessages(app.GetMessagesDM(
+						app.CurrentDMID,
+						"0", false, true,
+					))
+					app.OnlineServerUsers = []string{} //app.GetServerUsers(serverID)
+					break
+				}
 			}
 
 		case "tab":
@@ -422,12 +459,19 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				messageAreaHeight := m.height - 7
 
 				totalLines := calculateTotalMessageLines(app.Messages, m.width-32)
-				maxOffset := clamp(totalLines-messageAreaHeight, 0, totalLines)
+				maxOffset := util.Clamp(totalLines-messageAreaHeight, 0, totalLines)
 
 				if m.scrollOffset < maxOffset {
 					m.scrollOffset++
 				} else if len(app.Messages) > 0 {
-					scrolledMessages := GetMessages(app.CurrentServerID, app.ChannelListToDataMap[m.activeChannelIndex].ID, app.Messages[0].ID, false, false)
+					scrolledMessages := make([]app.Message, 0)
+					switch m.serverMenuMode {
+					case MenuModeDM:
+						scrolledMessages = app.GetMessagesDM(app.CurrentDMID, app.Messages[0].ID, false, false)
+					case MenuModeServer:
+						scrolledMessages = app.GetMessagesServer(app.CurrentServerID, app.ChannelListToDataMap[m.activeChannelIndex].ID, app.Messages[0].ID, false, false)
+					}
+
 					app.Messages = append(scrolledMessages, app.Messages...)
 					m.scrollOffset += len(scrolledMessages)
 					return m, nil
@@ -462,10 +506,10 @@ func (m *ChatScreen) View() string {
 	serversWidth := 12
 	channelsWidth := 20
 	rightPanelWidth := 10
-	panelHeight := clamp(m.height-5, 4, m.height)
+	panelHeight := util.Clamp(m.height-5, 4, m.height)
 
 	title := "Relay"
-	headerWidth := clamp(m.width-len(title)-5, 0, m.width)
+	headerWidth := util.Clamp(m.width-len(title)-5, 0, m.width)
 	top := borderStyle.Render("┌─ " + title + " " + strings.Repeat("─", headerWidth) + "┐")
 
 	serverIDLabel := ""
@@ -475,12 +519,12 @@ func (m *ChatScreen) View() string {
 
 	addr := app.ServerURL.Host + serverIDLabel
 	userID := app.CurrentUserID
-	spacing := clamp(m.width-len(addr)-len(userID)-2, 1, m.width)
+	spacing := util.Clamp(m.width-len(addr)-len(userID)-2, 1, m.width)
 	middle := borderStyle.Render("│" + addr + strings.Repeat(" ", spacing) + userID + "│")
 
 	leftDividerX := serversWidth + channelsWidth
 	rightDividerX := m.width - rightPanelWidth - 3
-	chatWidth := clamp(rightDividerX-leftDividerX, 2, rightDividerX)
+	chatWidth := util.Clamp(rightDividerX-leftDividerX, 2, rightDividerX)
 
 	servers := renderListBox("Servers", app.Servers, func(s app.Server) string { return s.Name },
 		serversWidth, panelHeight, m.focusedPanel == serverMenu, m.inMenu, m.selectedServerIndex, m.activeServerIndex, m.cursorBlink)
@@ -520,7 +564,7 @@ func (m *ChatScreen) View() string {
 			// return symbol + " " + c.Name
 			return c.UserID
 		},
-			channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedChannelIndex, m.activeChannelIndex, m.cursorBlink)
+			channelsWidth, panelHeight, m.focusedPanel == channelMenu, m.inMenu, m.selectedDMIndex, m.activeDMIndex, m.cursorBlink)
 	}
 
 	chatTitle := ""
@@ -569,7 +613,7 @@ func (m *ChatScreen) View() string {
 	formattedContent = append(formattedContent, top, middle, separator)
 
 	for _, line := range panelLines {
-		pad := clamp(m.width-lipgloss.Width(line)-2, 0, m.width)
+		pad := util.Clamp(m.width-lipgloss.Width(line)-2, 0, m.width)
 		formattedContent = append(formattedContent, borderStyle.Render("│"+line+strings.Repeat(" ", pad)+"│"))
 	}
 
@@ -593,8 +637,8 @@ func renderListBox[T any](
 	selectedIndex, activeIndex int,
 	blink bool,
 ) string {
-	width = clamp(width, len(title)+5, width)
-	height = clamp(height, 2, height)
+	width = util.Clamp(width, len(title)+5, width)
+	height = util.Clamp(height, 2, height)
 	innerWidth := width - 2
 
 	style := borderStyle
@@ -619,7 +663,7 @@ func renderListBox[T any](
 		}
 		content = string(runes)
 
-		paddingLen := clamp(innerWidth-lipgloss.Width(content), 0, innerWidth)
+		paddingLen := util.Clamp(innerWidth-lipgloss.Width(content), 0, innerWidth)
 		paddedContent := content + strings.Repeat(" ", paddingLen)
 
 		if inMenu && isFocused && i == selectedIndex {
@@ -644,7 +688,7 @@ func formatMessageTime(epochSecs int64) string {
 }
 
 func chatBox(width, height, topLine int, title string, messageArray []app.Message, model *ChatScreen) string {
-	width, height = clamp(width, 2, width), clamp(height, 4, height)
+	width, height = util.Clamp(width, 2, width), util.Clamp(height, 4, height)
 	innerWidth := width - 2
 
 	activeBorder := borderStyle
@@ -697,7 +741,7 @@ func chatBox(width, height, topLine int, title string, messageArray []app.Messag
 	}
 	formattedInputLines = append(formattedInputLines, currentLine)
 
-	dividerLine := clamp(height-len(formattedInputLines)-2, topLine+1, height-1)
+	dividerLine := util.Clamp(height-len(formattedInputLines)-2, topLine+1, height-1)
 	messageAreaHeight := dividerLine - (topLine + 1)
 
 	var allMessageLines []string
@@ -724,14 +768,14 @@ func chatBox(width, height, topLine int, title string, messageArray []app.Messag
 	}
 
 	totalLines := len(allMessageLines)
-	maxOffset := clamp(totalLines-messageAreaHeight, 0, totalLines)
-	model.scrollOffset = clamp(model.scrollOffset, 0, maxOffset)
+	maxOffset := util.Clamp(totalLines-messageAreaHeight, 0, totalLines)
+	model.scrollOffset = util.Clamp(model.scrollOffset, 0, maxOffset)
 
 	endIdx := totalLines - model.scrollOffset
 	startIdx := endIdx - messageAreaHeight
 
-	startIdx = clamp(startIdx, 0, startIdx)
-	endIdx = clamp(endIdx, 0, endIdx)
+	startIdx = util.Clamp(startIdx, 0, startIdx)
+	endIdx = util.Clamp(endIdx, 0, endIdx)
 
 	visibleLines := allMessageLines[startIdx:endIdx]
 
@@ -753,7 +797,7 @@ func chatBox(width, height, topLine int, title string, messageArray []app.Messag
 		if lipgloss.Width(paddedTitle) > innerWidth {
 			paddedTitle = paddedTitle[:innerWidth]
 		}
-		padLen := clamp(innerWidth-lipgloss.Width(paddedTitle), 0, innerWidth)
+		padLen := util.Clamp(innerWidth-lipgloss.Width(paddedTitle), 0, innerWidth)
 		lines[topLine-1] = leftBorder + paddedTitle + strings.Repeat(" ", padLen) + rightBorder
 	}
 
@@ -775,7 +819,7 @@ func chatBox(width, height, topLine int, title string, messageArray []app.Messag
 			msgContent = visibleLines[i]
 		}
 
-		padLen := clamp(innerWidth-lipgloss.Width(msgContent), 0, innerWidth)
+		padLen := util.Clamp(innerWidth-lipgloss.Width(msgContent), 0, innerWidth)
 		rightChar := rightBorder
 
 		if showScrollbar {
@@ -796,12 +840,12 @@ func chatBox(width, height, topLine int, title string, messageArray []app.Messag
 		if row >= height-1 {
 			break
 		}
-		lines[row] = inputLine + strings.Repeat(" ", clamp(innerWidth-lipgloss.Width(inputLine), 0, innerWidth)) + " " + rightBorder
+		lines[row] = inputLine + strings.Repeat(" ", util.Clamp(innerWidth-lipgloss.Width(inputLine), 0, innerWidth)) + " " + rightBorder
 	}
 	return strings.Join(lines, "\n")
 }
 
-func SendMessage(m *ChatScreen) {
+func SendMessageServer(m *ChatScreen) {
 	token, err := app.LoadToken()
 	if err != nil {
 
@@ -821,41 +865,21 @@ func SendMessage(m *ChatScreen) {
 	}
 }
 
-func GetMessages(serverID any, channelID any, messageID any, ascending any, moreThan any) []app.Message {
+func SendMessageDM(m *ChatScreen) {
+	token, err := app.LoadToken()
+	if err != nil {
 
-	JWTCookie, err := app.LoadToken()
-	if err != nil || JWTCookie == "" {
-		return nil
 	}
+	if m.inputBuffer != "" {
+		payload := map[string]any{
+			"dmID":    app.CurrentDMID,
+			"content": m.inputBuffer,
+			"authKey": token,
+			"message": "sendMessageDM",
+		}
 
-	reqPayload := GetMessagesRequest{
-		ServerID:  fmt.Sprintf("%v", serverID),
-		ChannelID: fmt.Sprintf("%v", channelID),
-		MessageID: fmt.Sprintf("%v", messageID),
-		Ascending: fmt.Sprintf("%v", ascending),
-		MoreThan:  fmt.Sprintf("%v", moreThan),
+		app.SendWebsocketJSON(payload)
+		m.inputBuffer = ""
+		m.cursorPos = 0
 	}
-	url := url.URL{
-		Scheme: app.ServerURL.Scheme,
-		Host:   app.ServerURL.Host,
-		Path:   app.GetMessagesEndpoint,
-	}
-
-	var messages []app.Message
-	if err := app.POST(reqPayload, JWTCookie, url.String(), &messages); err != nil {
-		fmt.Println("Error:", err)
-		return nil
-	}
-
-	return messages
-}
-
-func clamp(val, minVal, maxVal int) int {
-	if val < minVal {
-		return minVal
-	}
-	if val > maxVal {
-		return maxVal
-	}
-	return val
 }

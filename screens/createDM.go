@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"Relay/app"
+	"Relay/util"
 	_ "embed"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -189,14 +190,14 @@ func (m CreateDMScreen) View() string {
 		)
 
 	title := "Create DM"
-	headerWidth := clamp(m.width-len(title)-5, 0, m.width)
-	panelHeight := clamp(m.height-5, 4, m.height)
+	headerWidth := util.Clamp(m.width-len(title)-5, 0, m.width)
+	panelHeight := util.Clamp(m.height-5, 4, m.height)
 
 	top := borderStyle.Render("┌─ " + title + " " + strings.Repeat("─", headerWidth) + "┐")
 
 	addr := app.ServerURL.Host
 	userID := app.CurrentUserID
-	spacing := clamp(m.width-len(addr)-len(userID)-2, 1, m.width)
+	spacing := util.Clamp(m.width-len(addr)-len(userID)-2, 1, m.width)
 	middle := borderStyle.Render("│" + addr + strings.Repeat(" ", spacing) + userID + "│")
 
 	separator := borderStyle.Render("├" + strings.Repeat("─", m.width-2) + "┤")
