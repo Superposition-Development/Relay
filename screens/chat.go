@@ -373,6 +373,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					}
 					fmt.Println(m.selectedDMIndex)
 					m.activeDMIndex = m.selectedDMIndex
+					app.CurrentDMID = app.DMListToDataMap[m.activeDMIndex].ID
 					m.focusedPanel = typingField
 					m.inMenu = false
 					// app.CurrentDMID = app.DMListToDataMap[m.activeDMIndex].ID
