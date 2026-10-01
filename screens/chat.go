@@ -299,11 +299,18 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 							app.CurrentChannelID = -1
 							app.CurrentServerID = -1
 
+							// app.Channels = app.GetChannels(app.CurrentServerID)
+							app.DMs = app.GetDMs()
+							app.Messages = nil
+
 							m.selectedDMIndex = 0
 							m.activeDMIndex = -1
 							app.CurrentDMID = -1
+							m.focusedPanel = channelMenu
+							return m, nil
 						}
-						return m, nil
+						// return m, nil
+						// break
 					}
 				}
 
@@ -364,10 +371,11 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 							}
 						}
 					}
+					fmt.Println(m.selectedDMIndex)
 					m.activeDMIndex = m.selectedDMIndex
 					m.focusedPanel = typingField
 					m.inMenu = false
-					app.CurrentDMID = app.DMListToDataMap[m.activeDMIndex].ID
+					// app.CurrentDMID = app.DMListToDataMap[m.activeDMIndex].ID
 
 					// if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
 					// 	app.GlobalCallControl = app.InstantiateCallControl(channelID)
@@ -416,7 +424,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				m.selectedServerIndex = (m.selectedServerIndex + 1) % len(app.Servers)
 			}
 			if m.inMenu && m.focusedPanel == channelMenu {
-				if m.serverMenuMode == MenuModeDM && len(app.DMs) > 0 {
+				if m.serverMenuMode == MenuModeDM {
 					m.selectedDMIndex = (m.selectedDMIndex + 1) % len(app.DMs)
 				} else if m.serverMenuMode == MenuModeServer && len(app.Channels) > 0 {
 					m.selectedChannelIndex = (m.selectedChannelIndex + 1) % len(app.Channels)
@@ -442,7 +450,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			// }
 
 			if m.inMenu && m.focusedPanel == channelMenu {
-				if m.serverMenuMode == MenuModeDM && len(app.DMs) > 0 {
+				if m.serverMenuMode == MenuModeDM {
 					m.selectedDMIndex--
 					if m.selectedDMIndex < 0 {
 						m.selectedDMIndex = len(app.DMs) - 1

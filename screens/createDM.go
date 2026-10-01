@@ -26,7 +26,7 @@ type CreateDMScreen struct {
 
 func NewCreateDMScreen(h, w int) CreateDMScreen {
 	serverName := textinput.New()
-	serverName.Width = 40
+	serverName.Width = 67
 	serverName.Prompt = ""
 
 	serverName.Focus()
