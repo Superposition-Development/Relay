@@ -395,10 +395,10 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					serverID := app.CurrentServerID
 					channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
 
-					// if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
-					// 	app.GlobalCallControl = app.InstantiateCallControl(channelID)
-					// 	return m, app.GlobalCallControl.StartCallRoutine()
-					// }
+					if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
+						app.JoinCall()
+						return m, nil //app.JoinCall()
+					}
 
 					app.Messages = app.ReverseMessages(app.GetMessagesServer(
 						serverID,

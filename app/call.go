@@ -23,34 +23,34 @@ type CallControl struct {
 
 var ClientPeerConnection *webrtc.PeerConnection
 
+// var config = webrtc.Configuration{
+// 	ICEServers: []webrtc.ICEServer{
+// 		{
+// 			URLs: []string{
+// 				"turn:global.relay.metered.ca:80",
+// 				"turn:global.relay.metered.ca:443",
+// 				"turn:global.relay.metered.ca:443?transport=tcp",
+// 			},
+// 			Username:   "a072cb146b471d7876e641dc",
+// 			Credential: "AbV/kjuHbgOurcxl",
+// 		},
+// 	},
+// 	ICETransportPolicy: webrtc.ICETransportPolicyRelay,
+// }
+
 var config = webrtc.Configuration{
 	ICEServers: []webrtc.ICEServer{
-		{
-			URLs: []string{
-				"turn:global.relay.metered.ca:80",
-				"turn:global.relay.metered.ca:443",
-				"turn:global.relay.metered.ca:443?transport=tcp",
-			},
-			Username:   "a072cb146b471d7876e641dc",
-			Credential: "AbV/kjuHbgOurcxl",
-		},
+		{URLs: []string{"stun:stun.l.google.com:19302"}},
 	},
-	ICETransportPolicy: webrtc.ICETransportPolicyRelay,
 }
 
-func StartCall() {
+func JoinCall() {
+	token, err := LoadToken()
 	cpc, err := webrtc.NewPeerConnection(config)
 	ClientPeerConnection = cpc
 	if err != nil {
 
 	}
-
-	localDescription, err := ClientPeerConnection.CreateOffer(&webrtc.OfferOptions{
-		OfferAnswerOptions: webrtc.OfferAnswerOptions{},
-		ICERestart:         true,
-	})
-
-	ClientPeerConnection.SetLocalDescription(localDescription)
 
 	ClientPeerConnection.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c == nil {
@@ -59,16 +59,44 @@ func StartCall() {
 
 		SendWebsocketJSON(map[string]interface{}{
 			"candidate": c.ToJSON(),
-			"message":   "candidate"})
+			"message":   "candidate",
+			"authKey":   token,
+		})
 	})
 
-	token, err := LoadToken()
+	// localDescription, err := ClientPeerConnection.CreateOffer(&webrtc.OfferOptions{
+	// 	OfferAnswerOptions: webrtc.OfferAnswerOptions{},
+	// 	ICERestart:         true,
+	// })
+
+	localDescription, err := ClientPeerConnection.CreateOffer(nil)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// fmt.Println(localDescription)
+	// currentServerAddress = localdescription
+
+	ClientPeerConnection.SetLocalDescription(localDescription)
 	payload := map[string]any{
-		"callID":  "dietz", //fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
-		"offfer":  localDescription,
 		"authKey": token,
+		"callID":  "dietz", //fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
+		"offer":   localDescription,
 		"message": "joinCall",
 	}
 	SendWebsocketJSON(payload)
+}
 
+func LeaveCall() {
+	token, err := LoadToken()
+	if err != nil {
+		//oh well ig
+	}
+	payload := map[string]any{
+		"callID":  "dietz", //fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
+		"authKey": token,
+		"message": "leaveCall",
+	}
+	SendWebsocketJSON(payload)
 }
