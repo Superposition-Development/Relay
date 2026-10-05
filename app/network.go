@@ -352,7 +352,7 @@ func RegisterWebsocket(address string, jwtToken string) {
 	mu.Unlock()
 
 	registerMessage := map[string]any{
-		"message": "register",
+		"type":    "register",
 		"authKey": jwtToken,
 	}
 
@@ -419,7 +419,7 @@ func ListenForWSMsg() tea.Cmd {
 	return func() tea.Msg {
 		msg := <-WSChan
 
-		msgType, ok := msg["message"].(string)
+		msgType, ok := msg["type"].(string)
 		if !ok {
 			// fmt.Println(msg)
 			return nil
@@ -459,6 +459,36 @@ func ObtainEvent(message WebsocketMessage) {
 		if err := ClientPeerConnection.SetRemoteDescription(answer); err != nil {
 			return
 		}
+	case "offer":
+		var offerSDP string
+		switch v := message.Data.(type) {
+		case string:
+			var answerMap map[string]interface{}
+			if err := json.Unmarshal([]byte(v), &answerMap); err != nil {
+				return
+			}
+			offerSDP, _ = answerMap["sdp"].(string)
+		case map[string]interface{}:
+			offerSDP, _ = v["sdp"].(string)
+		}
+		offer := webrtc.SessionDescription{
+			Type: webrtc.SDPTypeOffer,
+			SDP:  offerSDP,
+		}
+		ClientPeerConnection.SetRemoteDescription(offer)
+		answer, err := ClientPeerConnection.CreateAnswer(nil)
+		if err != nil {
+			//oh well
+		}
+		_ = ClientPeerConnection.SetLocalDescription(answer)
+		token, err := LoadToken()
+		payload := map[string]any{
+			"authKey": token,
+			"callID":  "dietz", //fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
+			"answer":  answer,
+			"type":    "answer",
+		}
+		SendWebsocketJSON(payload)
 
 	case "candidate":
 		var init webrtc.ICECandidateInit //ICECandidateInit
