@@ -374,6 +374,16 @@ func (m *CallControl) JoinCall() {
 		})
 	})
 
+	ClientPeerConnection.OnTrack(func(track *webrtc.TrackRemote, receiever *webrtc.RTPReceiver) {
+		m.mu.Lock()
+		engine := m.audioEngine
+		m.mu.Unlock()
+
+		if engine != nil {
+			go engine.HandleRemoteTrack(track)
+		}
+	})
+
 	// localDescription, err := ClientPeerConnection.CreateOffer(&webrtc.OfferOptions{
 	// 	OfferAnswerOptions: webrtc.OfferAnswerOptions{},
 	// 	ICERestart:         true,
