@@ -394,9 +394,10 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					m.inMenu = false
 					serverID := app.CurrentServerID
 					channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
+					app.GlobalCallControl = app.InstantiateCallControl("dietz")
 
 					if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
-						app.JoinCall()
+						app.GlobalCallControl.JoinCall()
 						return m, nil //app.JoinCall()
 					}
 
@@ -913,7 +914,7 @@ func SendMessageServer(m *ChatScreen) {
 			"channelID": fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
 			"content":   m.inputBuffer,
 			"authKey":   token,
-			"message":   "sendMessageServer",
+			"type":      "sendMessageServer",
 		}
 
 		app.SendWebsocketJSON(payload)
@@ -932,7 +933,7 @@ func SendMessageDM(m *ChatScreen) {
 			"dmID":    app.CurrentDMID,
 			"content": m.inputBuffer,
 			"authKey": token,
-			"message": "sendMessageDM",
+			"type":    "sendMessageDM",
 		}
 
 		app.SendWebsocketJSON(payload)
