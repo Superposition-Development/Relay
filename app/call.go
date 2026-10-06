@@ -383,7 +383,7 @@ func (m *CallControl) JoinCall() {
 
 		SendWebsocketJSON(map[string]interface{}{
 			"candidate": c.ToJSON(),
-			"callID":    m.callID,
+			"callID":    "dietz",
 			"type":      "candidate",
 			"authKey":   token,
 		})
@@ -404,7 +404,7 @@ func (m *CallControl) JoinCall() {
 	// 	ICERestart:         true,
 	// })
 
-	uniqueTrackID := fmt.Sprintf("%s-%s", CurrentUserID, m.callID)
+	uniqueTrackID := fmt.Sprintf("%s-%s", CurrentUserID, "dietz")
 	streamID := fmt.Sprintf("stream-%s", CurrentUserID)
 
 	m.outTrack, err = webrtc.NewTrackLocalStaticSample(
@@ -436,7 +436,7 @@ func (m *CallControl) JoinCall() {
 
 	payload := map[string]any{
 		"authKey": token,
-		"callID":  m.callID,
+		"callID":  "dietz",
 		"offer":   localDescription,
 		"type":    "joinCall",
 	}
