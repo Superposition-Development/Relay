@@ -347,9 +347,9 @@ var config = webrtc.Configuration{
 	ICEServers: []webrtc.ICEServer{
 		{
 			URLs: []string{
-				"turn:global.relay.metered.ca:80",
+				// "turn:global.relay.metered.ca:80",
 				// "turn:global.relay.metered.ca:443",
-				// "turn:global.relay.metered.ca:443?transport=tcp",
+				"turn:global.relay.metered.ca:443?transport=tcp",
 			},
 			Username:   "a072cb146b471d7876e641dc",
 			Credential: "AbV/kjuHbgOurcxl",
