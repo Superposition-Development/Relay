@@ -394,6 +394,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 					m.inMenu = false
 					serverID := app.CurrentServerID
 					channelID := app.ChannelListToDataMap[m.activeChannelIndex].ID
+					app.CurrentChannelID = channelID
 					app.GlobalCallControl = app.InstantiateCallControl("dietz")
 
 					if app.ChannelListToDataMap[m.activeChannelIndex].Type == "voice" {
