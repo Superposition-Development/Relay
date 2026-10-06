@@ -436,7 +436,7 @@ func (m *CallControl) JoinCall() {
 
 	payload := map[string]any{
 		"authKey": token,
-		"callID":  "dietz", //fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
+		"callID":  CurrentChannelID,
 		"offer":   localDescription,
 		"type":    "joinCall",
 	}
@@ -449,7 +449,7 @@ func LeaveCall() {
 		//oh well ig
 	}
 	payload := map[string]any{
-		"callID":  "dietz", //fmt.Sprintf("%v", app.ChannelListToDataMap[m.activeChannelIndex].ID),
+		"callID":  CurrentChannelID,
 		"authKey": token,
 		"type":    "leaveCall",
 	}
