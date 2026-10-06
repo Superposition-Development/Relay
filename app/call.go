@@ -436,7 +436,7 @@ func (m *CallControl) JoinCall() {
 
 	payload := map[string]any{
 		"authKey": token,
-		"callID":  CurrentChannelID,
+		"callID":  m.callID,
 		"offer":   localDescription,
 		"type":    "joinCall",
 	}
@@ -449,7 +449,7 @@ func LeaveCall() {
 		//oh well ig
 	}
 	payload := map[string]any{
-		"callID":  CurrentChannelID,
+		"callID":  "dietz",
 		"authKey": token,
 		"type":    "leaveCall",
 	}

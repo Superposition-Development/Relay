@@ -484,7 +484,7 @@ func ObtainEvent(message WebsocketMessage) {
 		token, err := LoadToken()
 		payload := map[string]any{
 			"authKey": token,
-			"callID":  CurrentChannelID,
+			"callID":  "dietz",
 			"answer":  answer,
 			"type":    "answer",
 		}
