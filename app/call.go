@@ -24,6 +24,8 @@ const (
 	maxAudioBufferSize   = 192000
 )
 
+const playbackBuffer = 48000 * audioChannels * 2 / 10 //100ms
+
 var GlobalCallControl *CallControl
 
 type MicStream struct {
@@ -39,6 +41,7 @@ type AudioBuffer struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
 	closed bool
+	ready  bool
 }
 
 type AudioEngine struct {
@@ -87,7 +90,7 @@ func (m *MicStream) Start() error {
 	deviceConfig.SampleRate = sampleRate
 	deviceConfig.Alsa.NoMMap = 1
 
-	pcmChan := make(chan []byte, 64)
+	pcmChan := make(chan []byte, 256)
 
 	deviceCallbacks := malgo.DeviceCallbacks{
 		Data: func(_, pInputSamples []byte, _ uint32) {
@@ -100,6 +103,7 @@ func (m *MicStream) Start() error {
 			select {
 			case pcmChan <- buf:
 			default:
+				// really bad
 			}
 		},
 	}
@@ -201,6 +205,13 @@ func NewAudioBuffer() *AudioBuffer {
 func (b *AudioBuffer) Read(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	for !b.ready && !b.closed {
+		if len(b.buf) >= playbackBuffer {
+			b.ready = true
+			break
+		}
+		b.cond.Wait()
+	}
 
 	for len(b.buf) == 0 && !b.closed {
 		b.cond.Wait()
@@ -275,7 +286,7 @@ func (a *AudioEngine) HandleRemoteTrack(track *webrtc.TrackRemote) {
 		return
 	}
 
-	pcmInt16Buf := make([]int16, 5760*audioChannels)
+	pcmInt16Buf := make([]int16, frameSize*audioChannels)
 	pcmByteBuf := make([]byte, len(pcmInt16Buf)*2)
 
 	for {
