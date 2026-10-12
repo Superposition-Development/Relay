@@ -9,9 +9,9 @@ import (
 
 	"github.com/ebitengine/oto/v3"
 	"github.com/gen2brain/malgo"
-	"github.com/hraban/opus"
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
+	"github.com/tphakala/go-opus/opus"
 )
 
 const (
@@ -79,7 +79,8 @@ func NewMicStream(outTrack *webrtc.TrackLocalStaticSample) (*MicStream, error) {
 }
 
 func (m *MicStream) Start() error {
-	encoder, err := opus.NewEncoder(sampleRate, audioChannels, opus.AppVoIP)
+	encoder, err := opus.NewEncoder(opus.EncoderConfig{SampleRate: sampleRate, Channels: audioChannels})
+	// encoder, err := opus.NewEncoder(sampleRate, audioChannels, opus.AppVoIP)
 	if err != nil {
 		return fmt.Errorf("failed to create opus encoder: %w", err)
 	}
