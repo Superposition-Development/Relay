@@ -5,6 +5,8 @@ import (
 	"Relay/util"
 	"fmt"
 	"math"
+	"os/exec"
+	"runtime" // Needed?
 	"strings"
 	"time"
 
@@ -136,6 +138,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			channelID := ""
 			dmID := ""
 			name := ""
+			userID := ""
 			content := ""
 			var msgID int64
 			var timestamp int64
@@ -144,6 +147,7 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 				serverID = fmt.Sprintf("%v", dataMap["serverID"]) //TODO: send nil from the server
 				channelID = fmt.Sprintf("%v", dataMap["channelID"])
 				dmID = fmt.Sprintf("%v", dataMap["dmID"])
+				userID = fmt.Sprintf("%v", dataMap["userID"])
 				name = fmt.Sprintf("%v", dataMap["name"])
 				content = fmt.Sprintf("%v", dataMap["content"])
 				if idFloat, ok := dataMap["id"].(float64); ok {
@@ -158,8 +162,16 @@ func (m *ChatScreen) Update(msg tea.Msg) (app.Screen, tea.Cmd) {
 			newMessage := app.Message{
 				ID:        msgID,
 				Username:  name,
+				UserID:    userID,
 				Content:   content,
 				Timestamp: timestamp,
+			}
+
+			// Executes notify-send if available (if not it presumably just fails, haven't tested it)
+			if app.CurrentUserID != userID && strings.HasPrefix(runtime.GOOS, "linux") {
+				notifCmd := exec.Command("notify-send", "-a", "Relay", "-u", "low", name, content)
+				_ = notifCmd.Run()
+				// TODO: error checking	
 			}
 
 			if serverID == activeServerID && (channelID == activeChannelID || dmID == activeDMID) {

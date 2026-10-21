@@ -44,6 +44,7 @@ type Channel struct {
 type Message struct {
 	ID        int64  `json:"id"`
 	Username  string `json:"name"`
+	UserID    string `json:"userID"`
 	Content   string `json:"content"`
 	Timestamp int64  `json:"timestamp"`
 	Pfp       string `json:"pfp"`
