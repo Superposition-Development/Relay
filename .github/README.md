@@ -23,7 +23,6 @@ Relay instead focuses on self-hosted servers where only designated known recipie
 
 This is the CLI edition of the client; other versions are available and accessible on other branches of this repository. But all users, regardless of version, can connect to the same server. The server codebase is available at https://github.com/Superposition-Development/RelayServer
 
-
 # Installing Relay
 TBD
 
